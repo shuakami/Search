@@ -313,7 +313,10 @@ function shouldGenerateCorrections(feature: string) {
   if (!/^[a-z0-9]+$/.test(term)) {
     return false;
   }
-  return type === "s:";
+  // Both signal-joined strings (s:) and individual ASCII tokens (e:) earn
+  // fuzzy-correction tables. The score gate (titleLikeWeight) below keeps
+  // body-only tokens out so the pack stays compact.
+  return type === "s:" || type === "e:";
 }
 
 function addPosting(
@@ -449,7 +452,12 @@ export function buildIndex(
       }
 
       const term = feature.slice(2);
-      const maxDeletes = term.length > 10 ? 2 : 1;
+      // Index with maxDeletes=2 for terms long enough to absorb the cost.
+      // Pairs with the runtime's maxDeletes=1 to recover 2-edit typos via
+      // shared length-(L-2) deletes (e.g. user types "typscript" for
+      // "typescript": the runtime's 1-delete and the index's 2-delete meet
+      // at length 8). Short terms (< 4) keep maxDeletes=1 to bound the pack.
+      const maxDeletes = term.length >= 4 ? 2 : 1;
       for (const deletion of generateDeletes(term, maxDeletes)) {
         if (!deletion) continue;
         let candidates = correctionMap.get(deletion);

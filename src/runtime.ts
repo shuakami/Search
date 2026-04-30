@@ -93,6 +93,15 @@ export interface SearchEngine {
 interface InternalDocument extends StoredDocument {
   signalCompact: string;
   signalAscii: string;
+  /**
+   * Loose union of every stored field plus tags, lowercased and stripped of
+   * separators. Used by the query-quality gate to verify the query hits
+   * *something* — including URL paths and tags that the ranking signal
+   * deliberately excludes to keep the pack tight.
+   */
+  gateCompact: string;
+  /** ASCII-only twin of `gateCompact` for "sslcheck" / "githubapi" style joins. */
+  gateAscii: string;
 }
 
 interface TokenSlot {
@@ -219,7 +228,23 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     for (let tag = 0; tag < tagCount; tag += 1) {
       tags.push(readString());
     }
-    docs[index] = { id, fields, tags, signalCompact, signalAscii };
+    // Build the gate join once at load time. It includes every stored field
+    // *and* tags so URLs/tag-only matches can satisfy the query-quality gate.
+    const gateParts: string[] = [];
+    for (const name of storedFieldNames) gateParts.push(fields[name] || "");
+    for (const tag of tags) gateParts.push(tag);
+    const gateJoined = gateParts.join(" ");
+    const gateCompact = compactJoin(gateJoined);
+    const gateAscii = asciiJoin(gateJoined);
+    docs[index] = {
+      id,
+      fields,
+      tags,
+      signalCompact,
+      signalAscii,
+      gateCompact,
+      gateAscii,
+    };
   }
 
   const typeMaps: Map<string, TokenSlot>[] = new Array(TOKEN_TYPE_COUNT);
@@ -339,15 +364,22 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     return true;
   }
 
-  function rankFuzzy(term: string, touchedState: { count: number }) {
+  function rankFuzzy(
+    term: string,
+    touchedState: { count: number },
+    fuzzyAnchors?: string[],
+  ) {
     if (!term || term.length < 3) return 0;
-    const deletions = generateDeletes(term, term.length > 10 ? 2 : 1);
+    // Index emits 2-delete keys for terms ≥ 4 chars. Pairing query at 2-delete
+    // for terms ≥ 6 lets us recover 2-edit typos (e.g. "typscrpt" → typescript)
+    // while keeping query work bounded for short terms.
+    const queryMaxDeletes = term.length >= 6 ? 2 : 1;
     const visited = new Set<number>();
     let accepted = 0;
 
-    for (const deletion of deletions) {
-      const candidates = deleteLookup.get(deletion);
-      if (!candidates) continue;
+    /** Returns true when the per-query cap is hit. */
+    function tryCandidates(candidates: Int32Array | undefined): boolean {
+      if (!candidates) return false;
       for (let index = 0; index < candidates.length; index += 1) {
         const tokenId = candidates[index];
         if (visited.has(tokenId)) continue;
@@ -371,9 +403,21 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
           distance === 1 ? 0.64 : 0.42,
           touchedState,
         );
+        if (fuzzyAnchors && raw.length >= 2) fuzzyAnchors.push(raw);
         accepted += 1;
-        if (accepted >= 12) return accepted;
+        if (accepted >= 12) return true;
       }
+      return false;
+    }
+
+    // 1) Direct lookup: the typo may itself be a delete-permutation of a real
+    //    token (e.g. "typscript" is "typescript" with 'e' deleted).
+    if (tryCandidates(deleteLookup.get(term))) return accepted;
+
+    // 2) Walk deletions of the typo, intersecting with indexed deletes.
+    const deletions = generateDeletes(term, queryMaxDeletes);
+    for (const deletion of deletions) {
+      if (tryCandidates(deleteLookup.get(deletion))) break;
     }
     return accepted;
   }
@@ -424,14 +468,68 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       }
     }
 
+    const fuzzyAnchors: string[] = [];
     if (matchedDirect < 2) {
       const lastAsciiToken = [...tokens]
         .reverse()
         .find((token) => /^[a-z0-9]+$/.test(token));
-      if (joinedAscii) rankFuzzy(joinedAscii, touchedState);
+      if (joinedAscii) rankFuzzy(joinedAscii, touchedState, fuzzyAnchors);
       if (lastAsciiToken && lastAsciiToken !== joinedAscii)
-        rankFuzzy(lastAsciiToken, touchedState);
-      if (!joinedAscii && compact) rankFuzzy(compact, touchedState);
+        rankFuzzy(lastAsciiToken, touchedState, fuzzyAnchors);
+      if (!joinedAscii && compact)
+        rankFuzzy(compact, touchedState, fuzzyAnchors);
+    }
+
+    // Quality gate: a doc must contain *some* substring of the user's intent,
+    // otherwise we're just summing background bigram noise. Without this,
+    // queries like "1111111健康的那jdnwadjanda" return arbitrary docs because
+    // CJK bigrams ("健康", "的那") and ASCII bigrams ("ad", "an") accumulate
+    // small per-doc scores across the whole corpus.
+    const strongAnchors: string[] = [];
+    for (const token of tokens) {
+      if (token.length >= 2) strongAnchors.push(token);
+    }
+    if (compact.length >= 2) strongAnchors.push(compact);
+    if (joinedAscii.length >= 3 && joinedAscii !== compact)
+      strongAnchors.push(joinedAscii);
+    for (const fuzzy of fuzzyAnchors) strongAnchors.push(fuzzy);
+
+    // Pure-CJK fallback: when the query is only short single-CJK tokens
+    // (length < 2 each), tokens.length is 0 but the user typed real content.
+    // Allow docs that contain at least ceil(N/2) of the unique compact bigrams.
+    let bigramAnchors: string[] = [];
+    let bigramNeed = 0;
+    const isPureCjk =
+      tokens.length === 0 && compact.length >= 2 && joinedAscii.length === 0;
+    if (isPureCjk) {
+      const seen = new Set<string>();
+      for (let i = 0; i + 2 <= compact.length; i += 1) {
+        const gram = compact.slice(i, i + 2);
+        if (CJK_NEEDLE_RE.test(gram[0]) && CJK_NEEDLE_RE.test(gram[1])) {
+          if (!seen.has(gram)) {
+            seen.add(gram);
+            bigramAnchors.push(gram);
+          }
+        }
+      }
+      bigramNeed = Math.max(1, Math.ceil(bigramAnchors.length / 2));
+    }
+
+    function passesGate(doc: InternalDocument): boolean {
+      for (const a of strongAnchors) {
+        if (doc.gateCompact.includes(a) || doc.gateAscii.includes(a))
+          return true;
+      }
+      if (bigramAnchors.length > 0) {
+        let hits = 0;
+        for (const b of bigramAnchors) {
+          if (doc.gateCompact.includes(b)) {
+            hits += 1;
+            if (hits >= bigramNeed) return true;
+          }
+        }
+      }
+      return false;
     }
 
     const limit = Math.max(1, candidateLimit);
@@ -443,6 +541,7 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     for (let index = 0; index < touchedState.count; index += 1) {
       const docId = touched[index];
       const doc = docs[docId];
+      if (!passesGate(doc)) continue;
       let score = scores[docId];
 
       if (compact.length >= 3 && doc.signalCompact.includes(compact)) {

@@ -153,6 +153,35 @@ describe("buildIndex / loadIndex", () => {
     expect(rescored[0]?.doc.id).toBe("5");
   });
 
+  it("rejects pure-gibberish queries instead of returning bigram noise", () => {
+    const { pack } = buildIndex(DOCS, {
+      fields: { title: 5, body: 1 },
+      tagsField: "tags",
+    });
+    const engine = loadIndex(pack);
+    // Mixed gibberish that contains accidental CJK + ASCII bigrams. Without
+    // the query-quality gate the engine returns documents purely because
+    // their bigrams overlap with the noise.
+    expect(engine.search("1111111健康的那jdnwadjanda")).toEqual([]);
+    expect(engine.search("asdfghjkl")).toEqual([]);
+    expect(engine.search("qqqqqqqqqq")).toEqual([]);
+    expect(engine.search("xxxxxxxx健")).toEqual([]);
+  });
+
+  it("recovers from 1- and 2-edit ASCII typos via the fuzzy table", () => {
+    const { pack } = buildIndex(DOCS, {
+      fields: { title: 5, body: 1, url: { weight: 1, kind: "url" } },
+      tagsField: "tags",
+    });
+    const engine = loadIndex(pack);
+    // 1-edit deletion: "translate" → "translte"
+    expect(engine.search("translte")[0]?.doc.id).toBe("2");
+    // 1-edit substitution: "translate" → "trabslate"
+    expect(engine.search("trabslate")[0]?.doc.id).toBe("2");
+    // 2-edit deletion: "weather" → "wether"
+    expect(engine.search("wether")[0]?.doc.id).toBe("1");
+  });
+
   it("returns highlight ranges that match the original casing", () => {
     const { pack } = buildIndex(DOCS, {
       fields: { title: 5, body: 1 },
