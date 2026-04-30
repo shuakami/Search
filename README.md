@@ -15,8 +15,6 @@
 <p align="center">
   <a href="https://shuakami.github.io/Search/"><strong>Live demo →</strong></a>
   &nbsp;&nbsp;&nbsp;
-  <a href="README.zh-CN.md">中文</a>
-  &nbsp;&nbsp;&nbsp;
   <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
   &nbsp;&nbsp;&nbsp;
   <a href="https://github.com/shuakami/Search/blob/main/LICENSE">MIT</a>
@@ -37,15 +35,16 @@
 
 The JS search-engine field has been stuck choosing between two trade-offs:
 
-1. **Tiny bundle, slow queries** — `fuse.js` ships in a few kilobytes but scans every document on every keystroke; once your corpus is past a few thousand long-text rows the type-as-you-search experience falls apart.
-2. **Fast queries, no portable index** — `flexsearch`, `lunr`, and friends are quick on a warm engine but their on-disk format is a JSON dump (or worse, an async chunked serializer) that you have to re-parse and re-allocate on every page load.
+1. **Tiny bundle, slow queries** — `fuse.js` ships in a few kilobytes but scans every document on every keystroke; once the corpus passes a few thousand long-text rows the type-as-you-search experience falls apart.
+2. **Fast queries, no portable index** — `flexsearch`, `lunr`, and friends are quick on a warm engine but their on-disk format is a JSON dump (or worse, an async chunked serializer) that has to be re-parsed and re-allocated on every page load.
 
-`@shuakami/search` aims for a third point in the trade-off space:
+`@shuakami/search` aims for a third point:
 
-- The build step produces **one `Uint8Array`**. Drop it in a static asset folder, embed it as base64 in your bundle, ship it through a Worker, store it in IndexedDB. There is no JSON, no asynchronous re-hydration, no per-document overhead.
+- The build step produces **one `Uint8Array`**. Drop it in a static asset folder, embed it as base64 in a bundle, ship it through a Worker, store it in IndexedDB. No JSON, no asynchronous re-hydration, no per-document overhead.
 - `loadIndex(pack)` is **synchronous and zero-copy**. The engine reads the pack via typed-array views; nothing is materialised eagerly.
-- One **mixed-script tokenizer** handles ASCII, CJK ideographs, and code symbols in a single pass. Diacritics, full-width punctuation, and case fold the same way at build and query time, so what you index is what you search.
+- One **mixed-script tokenizer** handles ASCII, CJK ideographs, and code symbols in a single pass. Diacritics, full-width punctuation, and case fold identically at build and query time, so what is indexed is what is searched.
 - A SymSpell-style **delete table + Damerau–Levenshtein** verifier recovers 1–2 edit typos with a bounded amount of work — no exponential fan-out, no surprise tail latency.
+- A **query-quality gate** rejects bigram-noise gibberish (e.g. `1111111健康的那jdnwadjanda`) before it ever leaves the engine, so the UI sees an honest empty state instead of a wall of false positives.
 
 The runtime is 14 KB raw / ~6 KB gzipped, no `Buffer`, no DOM, no `eval`, no async setup.
 
@@ -253,6 +252,15 @@ At query time the engine:
 4. Boosts hits whose stored `signal` literally contains the query (`String.prototype.includes`).
 5. Selects the top-K via a partial heap, optionally applying a user-supplied `rescore` callback.
 
+## Search quality
+
+Speed is only half the story. The engine treats relevance as a hard contract:
+
+- **Anti-junk gate.** Every candidate document must contain at least one strong query anchor in its gate signal — the lower-cased, separator-stripped union of every stored field plus tags, including URL paths. Pure-CJK queries also need to clear half of their compact-bigram anchors. Inputs like `1111111健康的那jdnwadjanda`, `asdfghjkl`, or `qqqqqqqqq` return an empty result set instead of a coincidence-driven mess.
+- **Real typo recovery.** ASCII tokens of length ≥ 4 are fuzzy-indexed with a 2-delete table; the runtime walks 2 deletes for query terms of length ≥ 6 and also probes the typo as a delete-permutation directly. Damerau–Levenshtein verifies every candidate, so `typscrpt` recovers `typescript`, `javascrpt` recovers `javascript`, `raect hooks` recovers `react hooks` — without admitting a flood of unrelated near-neighbours.
+- **Mixed-script honesty.** ASCII alphanumeric runs stay whole, CJK ideographs are split into single characters, punctuation and combining marks normalise away identically at build and query time. Highlight ranges are returned in the original casing so the UI never has to re-locate matches.
+- **Predictable empty state.** When the gate rejects the query the engine returns `[]` synchronously. There is no spinning, no stale list of last-seen results, no fallback to fuzzy-everything.
+
 ## API
 
 ### `buildIndex(docs, options)` → `{ pack, manifest }`
@@ -273,6 +281,7 @@ interface FieldConfig {
 }
 
 interface BuildOptions {
+  /** Field weights. Pass a number for `kind: "text"`, or a full FieldConfig. */
   fields: Record<string, FieldConfig | number>;
   /** Field names persisted on every search hit. Defaults to all indexed fields. */
   storeFields?: string[];
@@ -291,23 +300,39 @@ interface BuildOptions {
 
 ```ts
 interface SearchEngine {
+  /** Synchronous, no I/O, no allocations beyond the result list. */
   search(query: string, options?: SearchOptions): SearchHit[];
-  readonly docCount: number;
-  readonly featureCount: number;
+  /** Stored documents in pack order — useful for warmup, debug, server-side render. */
+  readonly docs: readonly StoredDocument[];
+  /** Pack-level statistics derived from the binary at load time. */
+  readonly stats: {
+    docs: number;
+    features: number;
+    postings: number;
+    deletes: number;
+    storedFields: readonly string[];
+  };
 }
 
 interface SearchOptions {
-  limit?: number;            // default 10
-  minScoreRatio?: number;    // skip hits below `top * ratio` (default 0.05)
+  /** Maximum number of hits to return. Default: 10. */
+  limit?: number;
+  /** Drop hits below `topScore * minScoreRatio`. Default: 0.18. Set 0 to keep all. */
+  minScoreRatio?: number;
+  /** Client-side filter applied after scoring. */
   filter?: (doc: StoredDocument) => boolean;
+  /** Re-score hook for domain signals (recency, popularity, locale boosts). */
   rescore?: (hit: SearchHit) => number;
+  /** Restrict highlighting to this field order. Defaults to every stored field. */
+  highlightFields?: readonly string[];
 }
 
 interface SearchHit {
-  doc: { id: string; fields: Record<string, string>; tags: readonly string[] };
+  doc: StoredDocument; // { id, fields, tags }
   score: number;
+  /** Insertion order before the final sort — useful for tie-break. */
   refIndex: number;
-  matches: { field: string; ranges: [number, number][] }[];
+  matches: readonly { field: string; ranges: readonly (readonly [number, number])[] }[];
 }
 ```
 

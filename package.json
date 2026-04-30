@@ -64,7 +64,6 @@
     "dist",
     "src",
     "README.md",
-    "README.zh-CN.md",
     "LICENSE"
   ],
   "engines": {
