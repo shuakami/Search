@@ -497,7 +497,7 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     // Pure-CJK fallback: when the query is only short single-CJK tokens
     // (length < 2 each), tokens.length is 0 but the user typed real content.
     // Allow docs that contain at least ceil(N/2) of the unique compact bigrams.
-    let bigramAnchors: string[] = [];
+    const bigramAnchors: string[] = [];
     let bigramNeed = 0;
     const isPureCjk =
       tokens.length === 0 && compact.length >= 2 && joinedAscii.length === 0;
