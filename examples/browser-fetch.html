@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@shuakami/search — fetch demo</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 4rem auto; padding: 0 1rem; }
+      input { width: 100%; padding: .6rem .8rem; font: inherit; border: 1px solid #ccc; border-radius: 6px; }
+      ol { padding-left: 1.5rem; }
+      mark { background: #fff3a3; }
+      .hint { color: #666; font-size: 13px; margin-top: 0.4rem; }
+    </style>
+  </head>
+  <body>
+    <h1>@shuakami/search</h1>
+    <p>Pack is fetched from <code>./site.pack</code>; query happens entirely in the browser.</p>
+    <input id="q" placeholder="search…" autofocus />
+    <p class="hint" id="hint">loading index…</p>
+    <ol id="hits"></ol>
+
+    <script type="module">
+      import { createSearch } from "https://unpkg.com/@shuakami/search/dist/browser.js";
+      import { renderHighlights } from "https://unpkg.com/@shuakami/search/dist/highlight.js";
+
+      const hint = document.getElementById("hint");
+      const list = document.getElementById("hits");
+      const input = document.getElementById("q");
+
+      const engine = await createSearch("./site.pack");
+      hint.textContent = `index loaded — ${engine.docCount} docs / ${engine.featureCount} features`;
+
+      function render(hits) {
+        list.innerHTML = "";
+        for (const hit of hits) {
+          const li = document.createElement("li");
+          const titleMatches = hit.matches.find((m) => m.field === "title");
+          li.innerHTML = renderHighlights(
+            hit.doc.fields.title ?? hit.doc.id,
+            titleMatches?.ranges ?? [],
+          );
+          list.appendChild(li);
+        }
+      }
+
+      input.addEventListener("input", () => {
+        const query = input.value.trim();
+        if (!query) {
+          list.innerHTML = "";
+          return;
+        }
+        render(engine.search(query, { limit: 10 }));
+      });
+    </script>
+  </body>
+</html>

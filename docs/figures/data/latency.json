@@ -1,0 +1,11 @@
+{
+  "theme": "ink",
+  "layout": { "width": 1900, "height": 800, "padding": { "top": 70, "right": 130, "bottom": 100, "left": 60 }, "xMin": 0.001, "xMax": 200, "ticks": [0.001, 0.01, 0.1, 1, 10, 100], "barHeight": 22, "rowGap": 28, "hideCorner": true, "xAxisCaption": "p50 + p99 query latency, log scale (ms, lower is better), hacker news 10 000 titles, 200 mixed queries" },
+  "data": [
+    { "group": "@shuakami/search", "caption": "zero-dep, packs to one Uint8Array", "color": "accent", "bars": [ { "level": "p50", "ms": 0.224 }, { "level": "p99", "ms": 0.845 } ] },
+    { "group": "flexsearch",       "caption": "fastest, but no portable serialised index", "color": "neutral", "bars": [ { "level": "p50", "ms": 0.008 }, { "level": "p99", "ms": 0.432 } ] },
+    { "group": "minisearch",       "caption": "json index, re-parses on every page load", "color": "neutral", "bars": [ { "level": "p50", "ms": 0.731 }, { "level": "p99", "ms": 5.825 } ] },
+    { "group": "lunr",             "caption": "json index, ascii-only stemmer", "color": "neutral", "bars": [ { "level": "p50", "ms": 0.177 }, { "level": "p99", "ms": 5.133 } ] },
+    { "group": "fuse.js",          "caption": "fuzzy scan over docs, no index", "color": "neutral", "bars": [ { "level": "p50", "ms": 28 }, { "level": "p99", "ms": 80 } ] }
+  ]
+}

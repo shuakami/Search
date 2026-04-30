@@ -1,0 +1,20 @@
+{
+  "name": "shuakami-search-demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare:packs": "tsx scripts/build-packs.ts"
+  },
+  "dependencies": {
+    "@shuakami/search": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

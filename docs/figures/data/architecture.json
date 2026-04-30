@@ -1,0 +1,69 @@
+{
+  "theme": "ink",
+  "layout": { "width": 1900, "height": 980, "padding": { "top": 44, "right": 40, "bottom": 48, "left": 40 }, "groupGap": 32, "serviceHeight": 78, "serviceGap": 16 },
+  "data": {
+    "groups": [
+      {
+        "id": "build",
+        "label": "build (once)",
+        "caption": "node script / ci / bundler",
+        "services": [
+          { "id": "docs",     "label": "documents in",      "caption": "any object shape, with id + fields" },
+          { "id": "tok",      "label": "mixed-script tokenizer", "caption": "ascii, cjk, code, prefix, bigram" },
+          { "id": "fs",       "label": "feature builder",   "caption": "exact / prefix / signal / joined / bigram" },
+          { "id": "pack",     "label": "varint packer",     "caption": "zigzag deltas, 0xFFFF score cap", "accent": true }
+        ]
+      },
+      {
+        "id": "pack",
+        "label": "pack",
+        "caption": "one Uint8Array",
+        "services": [
+          { "id": "blob",     "label": "site.pack",         "caption": "magic 'SCH1', sections, checksum" }
+        ]
+      },
+      {
+        "id": "transport",
+        "label": "transport",
+        "caption": "you pick the surface",
+        "services": [
+          { "id": "fetch",    "label": "fetch()",           "caption": "static asset, cdn, service worker" },
+          { "id": "inline",   "label": "inline base64",     "caption": "embed in html, zero round-trip" },
+          { "id": "idb",      "label": "indexeddb",         "caption": "store once, reload offline" },
+          { "id": "wkr",      "label": "postMessage",       "caption": "worker, cross-thread, transferable" }
+        ]
+      },
+      {
+        "id": "runtime",
+        "label": "runtime (anywhere js runs)",
+        "caption": "browser, node, worker, edge, bun, deno",
+        "services": [
+          { "id": "load",     "label": "loadIndex(pack)",   "caption": "synchronous, zero-copy typed-array views" },
+          { "id": "norm",     "label": "query normaliser",  "caption": "same rules as build, nfkd, case fold" },
+          { "id": "lookup",   "label": "posting lookup",    "caption": "binary search, varint decode" },
+          { "id": "fuzzy",    "label": "symspell rescue",   "caption": "1–2 edits, damerau–levenshtein verify" },
+          { "id": "topk",     "label": "top-k heap",        "caption": "score boost, stored fields", "accent": true }
+        ]
+      }
+    ],
+    "connections": [
+      { "from": "docs",  "to": "tok" },
+      { "from": "tok",   "to": "fs" },
+      { "from": "fs",    "to": "pack" },
+      { "from": "pack",  "to": "blob", "accent": true },
+      { "from": "blob",  "to": "fetch" },
+      { "from": "blob",  "to": "inline" },
+      { "from": "blob",  "to": "idb" },
+      { "from": "blob",  "to": "wkr" },
+      { "from": "fetch", "to": "load" },
+      { "from": "inline","to": "load" },
+      { "from": "idb",   "to": "load" },
+      { "from": "wkr",   "to": "load", "accent": true },
+      { "from": "load",  "to": "norm" },
+      { "from": "norm",  "to": "lookup" },
+      { "from": "lookup","to": "fuzzy", "dashed": true, "label": "miss" },
+      { "from": "fuzzy", "to": "topk" },
+      { "from": "lookup","to": "topk" }
+    ]
+  }
+}

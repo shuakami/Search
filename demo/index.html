@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <title>shuakami/search — sub-millisecond search in any JS</title>
+    <meta
+      name="description"
+      content="Tiny, zero-dependency full-text search for JavaScript. Build a binary index once, query in microseconds — in the browser, in Node, anywhere JS runs."
+    />
+    <meta property="og:title" content="shuakami/search" />
+    <meta
+      property="og:description"
+      content="Tiny, zero-dependency full-text search for JavaScript. Build a binary index once, query in microseconds — in the browser, in Node, anywhere JS runs."
+    />
+    <meta property="og:image" content="./og.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin="anonymous"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__inner">
+        <p class="hero__brand">shuakami/search</p>
+
+        <h1 class="hero__headline">
+          a search engine that<br />
+          <em>fits in a Uint8Array.</em>
+        </h1>
+
+        <p class="hero__lede">
+          Build the index once. Ship one binary. Query in microseconds — in the
+          browser, in Node, anywhere JavaScript runs. Zero dependencies.
+        </p>
+
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="https://github.com/shuakami/Search">github</a>
+          <a class="btn" href="https://www.npmjs.com/package/@shuakami/search">npm</a>
+          <a class="btn" href="#demo">try it below</a>
+        </div>
+
+        <ul class="hero__stats">
+          <li>
+            <b>0.16 <span class="unit">ms</span></b>
+            <span class="label">p50 query, wiki-zh 8k</span>
+          </li>
+          <li>
+            <b>14 <span class="unit">KB</span></b>
+            <span class="label">runtime, gzip ≈ 6 KB</span>
+          </li>
+          <li>
+            <b>0</b>
+            <span class="label">runtime dependencies</span>
+          </li>
+        </ul>
+      </div>
+    </header>
+
+    <section id="demo" class="demo">
+      <div class="demo__chrome">
+        <div class="demo__corpora" id="corpus-tabs"></div>
+
+        <div class="demo__input-wrap">
+          <svg class="demo__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.5" />
+            <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          <input
+            id="q"
+            class="demo__input"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="search…"
+            autofocus
+          />
+          <kbd class="demo__hint">↵</kbd>
+        </div>
+
+        <dl class="demo__stats">
+          <div>
+            <dt>results</dt>
+            <dd id="stat-results">0</dd>
+          </div>
+          <div>
+            <dt>last query</dt>
+            <dd><span id="stat-latency">—</span><span class="unit">ms</span></dd>
+          </div>
+          <div>
+            <dt>p50 (last 32)</dt>
+            <dd><span id="stat-p50">—</span><span class="unit">ms</span></dd>
+          </div>
+          <div>
+            <dt>p99 (last 32)</dt>
+            <dd><span id="stat-p99">—</span><span class="unit">ms</span></dd>
+          </div>
+          <div class="demo__stats-meta">
+            <dt>corpus</dt>
+            <dd id="corpus-meta">loading…</dd>
+          </div>
+        </dl>
+
+        <ul id="results" class="results"></ul>
+
+        <p id="empty" class="empty">type to search the corpus loaded above.</p>
+      </div>
+    </section>
+
+    <section class="copy">
+      <div class="copy__col">
+        <h2>One file. Anywhere JS runs.</h2>
+        <p>
+          The build step produces a single <code>Uint8Array</code> — no JSON,
+          no per-document overhead, no asynchronous serialization. Drop it
+          into a static asset, transfer it to a Worker, or embed it as
+          base64. <code>loadIndex</code> is synchronous and zero-copy.
+        </p>
+      </div>
+      <div class="copy__col">
+        <h2>Tokenizer that knows it&rsquo;s 2025.</h2>
+        <p>
+          ASCII runs stay whole. CJK ideographs split per character. Code
+          symbols, full-width punctuation, diacritics, and case fold in one
+          NFKD pass. The same rules run at build and query time, so what
+          you index is what you search.
+        </p>
+      </div>
+      <div class="copy__col">
+        <h2>Typo tolerance, capped.</h2>
+        <p>
+          A SymSpell-style delete table recovers 1–2 edits with bounded
+          work. No exponential fan-out, no surprise tail latency: p99 stays
+          flat across every corpus we&rsquo;ve thrown at it.
+        </p>
+      </div>
+    </section>
+
+    <section class="snippet">
+      <pre><code><span class="t-c">// 1. build (once)</span>
+<span class="t-k">import</span> { buildIndex } <span class="t-k">from</span> <span class="t-s">"@shuakami/search"</span>;
+
+<span class="t-k">const</span> { pack } <span class="t-o">=</span> <span class="t-f">buildIndex</span>(docs, {
+  fields: {
+    title: { weight: <span class="t-n">5</span>, kind: <span class="t-s">"text"</span> },
+    body:  { weight: <span class="t-n">1</span>, kind: <span class="t-s">"text"</span> },
+  },
+});
+<span class="t-k">await</span> writeFile(<span class="t-s">"site.pack"</span>, pack);
+
+<span class="t-c">// 2. query (anywhere)</span>
+<span class="t-k">import</span> { createSearch } <span class="t-k">from</span> <span class="t-s">"@shuakami/search/browser"</span>;
+
+<span class="t-k">const</span> engine <span class="t-o">=</span> <span class="t-k">await</span> <span class="t-f">createSearch</span>(<span class="t-s">"/site.pack"</span>);
+<span class="t-k">const</span> hits  <span class="t-o">=</span> engine.<span class="t-f">search</span>(<span class="t-s">"machine learning"</span>);</code></pre>
+    </section>
+
+    <footer class="foot">
+      <span>MIT licensed</span>
+      <a href="https://github.com/shuakami/Search">github.com/shuakami/Search</a>
+      <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
+    </footer>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

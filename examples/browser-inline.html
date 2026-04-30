@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@shuakami/search — inline demo</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 4rem auto; padding: 0 1rem; }
+      input { width: 100%; padding: .6rem .8rem; font: inherit; border: 1px solid #ccc; border-radius: 6px; }
+      ol { padding-left: 1.5rem; }
+      mark { background: #fff3a3; }
+    </style>
+  </head>
+  <body>
+    <h1>@shuakami/search — inline</h1>
+    <p>Index built in-page from a JS array. No network. Edit and reload.</p>
+    <input id="q" placeholder="try: hello / 中文 / tokenizer / wasm" autofocus />
+    <ol id="hits"></ol>
+
+    <!-- The standalone build registers `window.ShuakamiSearch`. -->
+    <script src="https://unpkg.com/@shuakami/search/dist/standalone/shuakami-search.global.js"></script>
+    <script>
+      const docs = [
+        { id: "1", title: "Hello world", body: "First post on the new blog." },
+        { id: "2", title: "Search basics", body: "Tokenizers, postings, and how scoring works." },
+        { id: "3", title: "搜索入门", body: "中文示例文档，演示混合脚本分词。" },
+        { id: "4", title: "Adventures with WebAssembly", body: "Compiling a search runtime to WASM and back." },
+      ];
+
+      const { buildIndex, loadIndex, renderHighlights } = window.ShuakamiSearch;
+      const { pack } = buildIndex(docs, {
+        fields: { title: { weight: 5, kind: "text" }, body: { weight: 1, kind: "text" } },
+        storeFields: ["title", "body"],
+      });
+      const engine = loadIndex(pack);
+
+      const input = document.getElementById("q");
+      const list = document.getElementById("hits");
+      input.addEventListener("input", () => {
+        list.innerHTML = "";
+        const query = input.value.trim();
+        if (!query) return;
+        for (const hit of engine.search(query, { limit: 10 })) {
+          const titleMatches = hit.matches.find((m) => m.field === "title");
+          const li = document.createElement("li");
+          li.innerHTML = renderHighlights(
+            hit.doc.fields.title,
+            titleMatches?.ranges ?? [],
+          );
+          list.appendChild(li);
+        }
+      });
+    </script>
+  </body>
+</html>

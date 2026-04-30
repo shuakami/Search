@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.DS_Store
+*.log
+.env
+.env.local
+.eslintcache
+bench/datasets/cache
+demo/dist
+demo/public/packs/*.pack
+demo/public/packs/manifest.json
+bench/datasets/raw
+bench/results
+.tsbuildinfo

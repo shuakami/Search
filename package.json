@@ -1,0 +1,101 @@
+{
+  "name": "@shuakami/search",
+  "version": "0.1.0",
+  "description": "Tiny, zero-dependency full-text search for JavaScript. Builds a binary index once, then queries in microseconds — in the browser, in Node, or anywhere JS runs.",
+  "license": "MIT",
+  "author": {
+    "name": "shuakami",
+    "email": "shuakami@sdjz.wiki"
+  },
+  "homepage": "https://github.com/shuakami/Search#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shuakami/Search.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shuakami/Search/issues"
+  },
+  "keywords": [
+    "search",
+    "fulltext",
+    "fuzzy",
+    "tokenizer",
+    "cjk",
+    "chinese",
+    "client-side",
+    "static-site",
+    "browser",
+    "fuse-alternative",
+    "minisearch-alternative",
+    "flexsearch-alternative",
+    "lunr-alternative",
+    "inverted-index",
+    "varint",
+    "small",
+    "fast",
+    "zero-dependency"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js",
+      "require": "./dist/browser.cjs"
+    },
+    "./highlight": {
+      "types": "./dist/highlight.d.ts",
+      "import": "./dist/highlight.js",
+      "require": "./dist/highlight.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "shuakami-search": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:bundle": "tsup --config tsup.bundle.config.ts",
+    "build:all": "pnpm build && pnpm build:bundle",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src test bench --ext .ts",
+    "bench": "tsx bench/run.ts",
+    "bench:datasets": "tsx bench/prepare-datasets.ts",
+    "prepublishOnly": "pnpm build:all && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "eslint": "^8.57.0",
+    "flexsearch": "^0.7.43",
+    "fuse.js": "^7.0.0",
+    "lunr": "^2.3.9",
+    "minisearch": "^7.1.0",
+    "playwright-core": "^1.59.1",
+    "tsup": "^8.1.0",
+    "tsx": "^4.15.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
