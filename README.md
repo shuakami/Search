@@ -153,51 +153,51 @@ pnpm bench --queries=200  # writes Markdown to stdout, JSON to bench/results/
 
 | engine            | build       | gzip pack  | p50         | p99         | recall  |
 | ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 2.5 s       | 3.32 MB    | **0.224 ms** | **0.845 ms** | 79.5 %  |
-| fuse.js           | 51 ms       | 876 KB     | bailed *    | bailed *    | bailed *|
-| minisearch        | 405 ms      | 1.12 MB    | 0.731 ms    | 5.825 ms    | 83.9 %  |
-| lunr              | 1.5 s       | 1.64 MB    | 0.177 ms    | 5.133 ms    | 68.1 %  |
-| flexsearch        | 801 ms      | n/a †      | 0.008 ms    | 0.432 ms    | 88.8 %  |
+| **@shuakami/search** | 4.2 s       | 4.46 MB    | **0.101 ms** | **1.252 ms** | **88.5 %** |
+| fuse.js           | 41 ms       | 876 KB     | bailed *    | bailed *    | bailed *|
+| minisearch        | 393 ms      | 1.12 MB    | 0.866 ms    | 4.825 ms    | 85.7 %  |
+| lunr              | 1.4 s       | 1.64 MB    | 0.180 ms    | 4.230 ms    | 67.8 %  |
+| flexsearch        | 751 ms      | n/a †      | 0.012 ms    | 0.399 ms    | 87.9 %  |
 
-#### Stack Overflow questions · 8 000 docs (multi-paragraph technical prose)
+#### Stack Overflow questions · 10 000 docs (multi-paragraph technical prose)
 
 | engine            | build       | gzip pack  | p50         | p99         | recall  |
 | ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 6.5 s       | 7.13 MB    | **0.350 ms** | 6.433 ms    | 74.7 %  |
-| fuse.js           | 59 ms       | 2.21 MB    | bailed *    | bailed *    | bailed *|
-| minisearch        | 1.1 s       | 2.05 MB    | 1.577 ms    | 10.77 ms    | 81.8 %  |
-| lunr              | 3.8 s       | 3.84 MB    | 0.630 ms    | 17.06 ms    | 59.3 %  |
-| flexsearch        | 1.6 s       | n/a †      | 0.008 ms    | 2.089 ms    | 87.1 %  |
+| **@shuakami/search** | 10.0 s      | 9.96 MB    | **0.346 ms** | 6.891 ms    | 84.0 %  |
+| fuse.js           | 78 ms       | 2.78 MB    | bailed *    | bailed *    | bailed *|
+| minisearch        | 1.4 s       | 2.60 MB    | 1.923 ms    | 21.57 ms    | 82.2 %  |
+| lunr              | 4.3 s       | 4.80 MB    | 0.787 ms    | 24.61 ms    | 58.7 %  |
+| flexsearch        | 2.1 s       | n/a †      | 0.008 ms    | 2.485 ms    | 87.1 %  |
 
 #### Wikipedia EN summaries · 10 000 docs
 
 | engine            | build       | gzip pack  | p50         | p99         | recall  |
 | ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 9.9 s       | 9.70 MB    | 2.385 ms    | 13.74 ms    | **80.2 %** |
-| fuse.js           | 71 ms       | 2.78 MB    | bailed *    | bailed *    | bailed *|
-| minisearch        | 1.6 s       | 2.53 MB    | 1.854 ms    | 18.06 ms    | 79.2 %  |
-| lunr              | 4.4 s       | 4.88 MB    | 0.139 ms    | 13.65 ms    | 66.4 %  |
-| flexsearch        | 2.4 s       | n/a †      | 0.006 ms    | 1.819 ms    | 87.6 %  |
+| **@shuakami/search** | 11.6 s      | 11.16 MB   | **0.207 ms** | 4.487 ms    | **88.2 %** |
+| fuse.js           | 78 ms       | 2.78 MB    | bailed *    | bailed *    | bailed *|
+| minisearch        | 1.4 s       | 2.53 MB    | 1.904 ms    | 15.02 ms    | 77.7 %  |
+| lunr              | 4.0 s       | 4.88 MB    | 0.194 ms    | 13.48 ms    | 68.8 %  |
+| flexsearch        | 2.2 s       | n/a †      | 0.010 ms    | 1.866 ms    | 87.8 %  |
 
-#### GitHub source code · 5 000 files (camelCase, snake_case, code symbols)
+#### GitHub source code · 5 876 files (camelCase, snake_case, code symbols)
 
 | engine            | build       | gzip pack  | p50         | p99         | recall  |
 | ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 11.1 s      | 7.07 MB    | 1.108 ms    | 7.056 ms    | 76.0 %  |
-| fuse.js           | 98 ms       | 3.39 MB    | bailed *    | bailed *    | bailed *|
-| minisearch        | 2.4 s       | 2.36 MB    | 2.196 ms    | 35.67 ms    | 88.4 %  |
-| lunr              | 7.2 s       | 7.63 MB    | 0.196 ms    | 11.42 ms    | 64.0 %  |
-| flexsearch        | 2.1 s       | n/a †      | 0.008 ms    | 0.414 ms    | 86.8 %  |
+| **@shuakami/search** | 16.6 s      | 11.86 MB   | 0.807 ms    | 20.01 ms    | 80.7 %  |
+| fuse.js           | 124 ms      | 4.16 MB    | bailed *    | bailed *    | bailed *|
+| minisearch        | 3.0 s       | 2.89 MB    | 2.607 ms    | 36.00 ms    | 84.8 %  |
+| lunr              | 7.7 s       | 9.34 MB    | 0.346 ms    | 17.56 ms    | 62.5 %  |
+| flexsearch        | 2.4 s       | n/a †      | 0.013 ms    | 0.495 ms    | 87.5 %  |
 
-#### Wikipedia ZH summaries · 8 000 docs (mixed-script CJK)
+#### Wikipedia ZH summaries · 10 000 docs (mixed-script CJK)
 
 | engine            | build       | gzip pack  | p50         | p99         | recall      |
 | ----------------- | ----------: | ---------: | ----------: | ----------: | ----------: |
-| **@shuakami/search** | 14.6 s      | 12.58 MB   | **0.164 ms** | **1.064 ms** | **90.8 %**  |
-| fuse.js           | 76 ms       | 3.18 MB    | bailed *    | bailed *    | bailed *    |
-| minisearch        | 3.9 s       | 3.82 MB    | 4.605 ms    | 34.91 ms    | 64.9 %      |
-| lunr              | 3.0 s       | 2.16 MB    | 0.068 ms    | 23.82 ms    | 43.6 %      |
-| flexsearch        | 3.1 s       | n/a †      | 0.004 ms    | 0.041 ms    | 68.0 %      |
+| **@shuakami/search** | 23.7 s      | 20.07 MB   | **0.066 ms** | **1.467 ms** | **93.0 %**  |
+| fuse.js           | 47 ms       | 4.00 MB    | bailed *    | bailed *    | bailed *    |
+| minisearch        | 4.9 s       | 4.82 MB    | 5.436 ms    | 62.37 ms    | 66.9 %      |
+| lunr              | 3.6 s       | 2.58 MB    | 0.057 ms    | 1.358 ms    | 43.5 %      |
+| flexsearch        | 4.3 s       | n/a †      | 0.014 ms    | 0.176 ms    | 71.4 %      |
 
 `*` _fuse.js_ is fully fuzzy and rescans every document on every query — it could not finish a 200-query warmup pass under our 20 s budget on any corpus past ~5 000 long-text docs. The bench runner marks it `bailed` and keeps going.
 
