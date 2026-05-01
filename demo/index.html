@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light" />
-    <title>shuakami/search — sub-millisecond search in any JS</title>
+    <meta name="color-scheme" content="dark" />
+    <title>@shuakami/search — sub-millisecond full-text search for any JS</title>
     <meta
       name="description"
       content="Tiny, zero-dependency full-text search for JavaScript. Build a binary index once, query in microseconds — in the browser, in Node, anywhere JS runs."
     />
-    <meta property="og:title" content="shuakami/search" />
+    <meta property="og:title" content="@shuakami/search" />
     <meta
       property="og:description"
       content="Tiny, zero-dependency full-text search for JavaScript. Build a binary index once, query in microseconds — in the browser, in Node, anywhere JS runs."
@@ -29,7 +29,7 @@
       crossorigin="anonymous"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./src/styles.css" />
@@ -37,10 +37,16 @@
   <body>
     <header class="hero">
       <div class="hero__inner">
-        <p class="hero__brand">shuakami/search</p>
+        <nav class="hero__nav">
+          <span class="hero__brand">@shuakami/search</span>
+          <span class="hero__nav-spacer"></span>
+          <a href="https://github.com/shuakami/Search">github</a>
+          <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
+          <a href="#demo">demo</a>
+        </nav>
 
         <h1 class="hero__headline">
-          a search engine that<br />
+          A search engine that<br />
           <em>fits in a Uint8Array.</em>
         </h1>
 
@@ -49,78 +55,70 @@
           browser, in Node, anywhere JavaScript runs. Zero dependencies.
         </p>
 
-        <div class="hero__actions">
-          <a class="btn btn--primary" href="https://github.com/shuakami/Search">github</a>
-          <a class="btn" href="https://www.npmjs.com/package/@shuakami/search">npm</a>
-          <a class="btn" href="#demo">try it below</a>
-        </div>
-
-        <ul class="hero__stats">
-          <li>
-            <b>0.16 <span class="unit">ms</span></b>
-            <span class="label">p50 query, wiki-zh 8k</span>
-          </li>
-          <li>
-            <b>14 <span class="unit">KB</span></b>
-            <span class="label">runtime, gzip ≈ 6 KB</span>
-          </li>
-          <li>
-            <b>0</b>
-            <span class="label">runtime dependencies</span>
-          </li>
-        </ul>
+        <dl class="hero__stats">
+          <div>
+            <dt>p50 query, chinese wikipedia</dt>
+            <dd>0.16<span>&nbsp;ms</span></dd>
+          </div>
+          <div>
+            <dt>runtime, gzipped</dt>
+            <dd>5.7<span>&nbsp;kb</span></dd>
+          </div>
+          <div>
+            <dt>dependencies</dt>
+            <dd>0</dd>
+          </div>
+        </dl>
       </div>
     </header>
 
     <section id="demo" class="demo">
-      <div class="demo__chrome">
-        <div class="demo__corpora" id="corpus-tabs"></div>
+      <div class="demo__inner">
+        <header class="demo__header">
+          <h2>Try it on real corpora.</h2>
+          <p>
+            Four datasets, packed into one binary each. Pick one, type, watch
+            the latency line settle. Everything below runs locally in your
+            browser — no server.
+          </p>
+        </header>
 
-        <div class="demo__input-wrap">
-          <svg class="demo__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.5" />
-            <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          </svg>
-          <input
-            id="q"
-            class="demo__input"
-            type="search"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="search…"
-            autofocus
-          />
-          <kbd class="demo__hint">↵</kbd>
+        <div class="demo__chrome">
+          <div class="demo__topbar">
+            <span class="demo__label">live demo</span>
+            <span id="corpus-meta" class="demo__meta">loading…</span>
+          </div>
+
+          <div class="demo__corpora" id="corpus-tabs"></div>
+
+          <div class="demo__input-wrap">
+            <svg class="demo__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.5" />
+              <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <input
+              id="q"
+              class="demo__input"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="search…"
+              autofocus
+            />
+            <kbd class="demo__hint">↵</kbd>
+          </div>
+
+          <div class="demo__statline">
+            <span><b id="stat-results">0</b> results</span>
+            <span><b id="stat-latency">—</b> ms this query</span>
+            <span class="demo__faint">p50 over last 32: <b id="stat-p50">—</b> ms</span>
+            <span class="demo__faint">p99: <b id="stat-p99">—</b> ms</span>
+          </div>
+
+          <ul id="results" class="results"></ul>
+
+          <p id="empty" class="empty">type to search the corpus loaded above.</p>
         </div>
-
-        <dl class="demo__stats">
-          <div>
-            <dt>results</dt>
-            <dd id="stat-results">0</dd>
-          </div>
-          <div>
-            <dt>last query</dt>
-            <dd><span id="stat-latency">—</span><span class="unit">ms</span></dd>
-          </div>
-          <div>
-            <dt>p50 (last 32)</dt>
-            <dd><span id="stat-p50">—</span><span class="unit">ms</span></dd>
-          </div>
-          <div>
-            <dt>p99 (last 32)</dt>
-            <dd><span id="stat-p99">—</span><span class="unit">ms</span></dd>
-          </div>
-          <div class="demo__stats-meta">
-            <dt>corpus</dt>
-            <dd id="corpus-meta">loading…</dd>
-          </div>
-        </dl>
-
-        <p id="hint" class="hint" hidden></p>
-
-        <ul id="results" class="results"></ul>
-
-        <p id="empty" class="empty">type to search the corpus loaded above.</p>
       </div>
     </section>
 
@@ -135,7 +133,7 @@
         </p>
       </div>
       <div class="copy__col">
-        <h2>Tokenizer that knows it&rsquo;s 2026.</h2>
+        <h2>A tokenizer that knows it&rsquo;s 2025.</h2>
         <p>
           ASCII runs stay whole. CJK ideographs split per character. Code
           symbols, full-width punctuation, diacritics, and case fold in one
@@ -154,7 +152,7 @@
     </section>
 
     <section class="snippet">
-      <pre><code><span class="t-c">// 1. build (once)</span>
+      <pre><code><span class="t-c">// build the index once, at deploy time</span>
 <span class="t-k">import</span> { buildIndex } <span class="t-k">from</span> <span class="t-s">"@shuakami/search"</span>;
 
 <span class="t-k">const</span> { pack } <span class="t-o">=</span> <span class="t-f">buildIndex</span>(docs, {
@@ -165,7 +163,7 @@
 });
 <span class="t-k">await</span> writeFile(<span class="t-s">"site.pack"</span>, pack);
 
-<span class="t-c">// 2. query (anywhere)</span>
+<span class="t-c">// then query, anywhere</span>
 <span class="t-k">import</span> { createSearch } <span class="t-k">from</span> <span class="t-s">"@shuakami/search/browser"</span>;
 
 <span class="t-k">const</span> engine <span class="t-o">=</span> <span class="t-k">await</span> <span class="t-f">createSearch</span>(<span class="t-s">"/site.pack"</span>);
@@ -173,9 +171,9 @@
     </section>
 
     <footer class="foot">
-      <span>MIT licensed</span>
+      <span>MIT licensed.</span>
       <a href="https://github.com/shuakami/Search">github.com/shuakami/Search</a>
-      <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
+      <a href="https://www.npmjs.com/package/@shuakami/search">@shuakami/search on npm</a>
     </footer>
 
     <script type="module" src="./src/main.ts"></script>

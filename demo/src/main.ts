@@ -24,7 +24,6 @@ const tabsEl = document.getElementById("corpus-tabs") as HTMLElement;
 const inputEl = document.getElementById("q") as HTMLInputElement;
 const resultsEl = document.getElementById("results") as HTMLUListElement;
 const emptyEl = document.getElementById("empty") as HTMLElement;
-const hintEl = document.getElementById("hint") as HTMLElement;
 const corpusMetaEl = document.getElementById("corpus-meta") as HTMLElement;
 const statResultsEl = document.getElementById("stat-results") as HTMLElement;
 const statLatencyEl = document.getElementById("stat-latency") as HTMLElement;
@@ -90,7 +89,7 @@ function fmtBytes(bytes: number): string {
 }
 
 function renderCorpusMeta(entry: PackEntry) {
-  corpusMetaEl.textContent = `${entry.docs.toLocaleString()} docs, ${fmtBytes(entry.bytes)}`;
+  corpusMetaEl.textContent = `${entry.docs.toLocaleString()} documents, ${fmtBytes(entry.bytes)}`;
 }
 
 function renderTabs(entries: PackEntry[]) {
@@ -121,7 +120,6 @@ async function activate(entry: PackEntry) {
   renderCorpusMeta(entry);
   inputEl.placeholder =
     placeholders[entry.language] ?? `search ${entry.label.toLowerCase()}…`;
-  inputEl.value = "";
   resultsEl.innerHTML = "";
   emptyEl.style.display = "block";
   emptyEl.textContent = "loading pack…";
@@ -141,28 +139,22 @@ function runSearch(rawQuery: string) {
     resultsEl.innerHTML = "";
     emptyEl.style.display = "block";
     emptyEl.textContent = "type to search.";
-    hintEl.hidden = true;
     statResultsEl.textContent = "0";
     statLatencyEl.textContent = "—";
     return;
   }
 
   // Take the median of three runs to dampen single-call jitter on the UI.
-  let lastResult: ReturnType<SearchEngine["searchDetailed"]> = {
-    hits: [],
-    correctedQuery: null,
-    corrections: [],
-  };
+  let lastHits: ReturnType<SearchEngine["search"]> = [];
   const samples: number[] = [];
   for (let i = 0; i < 3; i += 1) {
     const t0 = performance.now();
-    lastResult = engine.searchDetailed(query, { limit: 25 });
+    lastHits = engine.search(query, { limit: 25 });
     samples.push(performance.now() - t0);
   }
   samples.sort((a, b) => a - b);
   const median = samples[1];
   ring.push(median);
-  const lastHits = lastResult.hits;
 
   statResultsEl.textContent = String(lastHits.length);
   statLatencyEl.textContent = fmtMs(median);
@@ -170,19 +162,6 @@ function runSearch(rawQuery: string) {
   const p99 = ring.percentile(99);
   if (p50 !== null) statP50El.textContent = fmtMs(p50);
   if (p99 !== null) statP99El.textContent = fmtMs(p99);
-
-  // "did you mean" hint: surface only when the engine *actually* used a fuzzy
-  // correction to recover this result set, and the rewritten query is
-  // different from what the user typed.
-  if (lastResult.correctedQuery && lastResult.correctedQuery !== query) {
-    hintEl.hidden = false;
-    hintEl.innerHTML = `did you mean <button type="button" data-q="${escape(
-      lastResult.correctedQuery,
-    )}">${escape(lastResult.correctedQuery)}</button>?`;
-  } else {
-    hintEl.hidden = true;
-    hintEl.innerHTML = "";
-  }
 
   if (lastHits.length === 0) {
     resultsEl.innerHTML = "";
@@ -213,7 +192,7 @@ function runSearch(rawQuery: string) {
         <span class="results__title">${titleHtml}</span>
         ${subtitle ? `<span class="results__sub">${escape(subtitle)}</span>` : ""}
       </div>
-      <span class="results__meta">${meta ? `<span class="results__metaText">${escape(meta)}</span>` : ""}<span class="results__score">${hit.score.toFixed(0)}</span></span>
+      <span class="results__meta">${meta ? `${escape(meta)}  ` : ""}${hit.score.toFixed(0)}</span>
     </li>`;
   });
   resultsEl.innerHTML = fragments.join("");
@@ -238,14 +217,6 @@ function debounce<F extends (value: string) => void>(fn: F, ms: number) {
 
 const debouncedSearch = debounce((value: string) => runSearch(value), 80);
 inputEl.addEventListener("input", () => debouncedSearch(inputEl.value));
-hintEl.addEventListener("click", (event) => {
-  const target = event.target as HTMLElement;
-  const correction = target.closest("button")?.getAttribute("data-q");
-  if (!correction) return;
-  inputEl.value = correction;
-  inputEl.focus();
-  runSearch(correction);
-});
 inputEl.addEventListener("keydown", (event) => {
   if (event.key === "Enter") runSearch(inputEl.value);
 });
