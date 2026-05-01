@@ -399,6 +399,14 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
   // marked docs and avoids 4–6 String.includes() calls per doc, which on
   // 10k-doc corpora cuts hot-query latency by 5–10×.
   const gateGeneration = new Uint32Array(docCount);
+  // Per-doc multi-token coverage mask. Each query token gets a unique bit;
+  // when the token's *exact* posting touches a doc, we OR the bit in. After
+  // the posting pass, we know which docs covered every query token without
+  // needing a substring scan over a (capped, possibly-truncated) signal
+  // string. Bit 31 is reserved for "covered by some non-token anchor
+  // feature" so multi-token bonuses still kick in when one token came in
+  // via signal/join rather than an exact hit.
+  const coverMask = new Uint32Array(docCount);
   let generation = 1;
 
   function addPostingByTokenId(
@@ -406,6 +414,7 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     multiplier: number,
     touchedState: { count: number },
     markAnchor: boolean,
+    coverBit: number,
   ) {
     const offset = tokenPostingOffsets[tokenId];
     const count = tokenPostingCounts[tokenId];
@@ -422,10 +431,12 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       if (seenGeneration[docId] !== generation) {
         seenGeneration[docId] = generation;
         scores[docId] = 0;
+        coverMask[docId] = 0;
         touched[touchedState.count++] = docId;
       }
       scores[docId] += score * multiplier;
       if (markAnchor) gateGeneration[docId] = generation;
+      if (coverBit !== 0) coverMask[docId] |= coverBit;
     }
   }
 
@@ -434,10 +445,17 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     multiplier: number,
     touchedState: { count: number },
     markAnchor: boolean,
+    coverBit: number,
   ) {
     const tokenId = tokenOffsetToId.get(entry.offset);
     if (tokenId === undefined) return;
-    addPostingByTokenId(tokenId, multiplier, touchedState, markAnchor);
+    addPostingByTokenId(
+      tokenId,
+      multiplier,
+      touchedState,
+      markAnchor,
+      coverBit,
+    );
   }
 
   function tryFeature(
@@ -446,10 +464,11 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     multiplier: number,
     touchedState: { count: number },
     markAnchor: boolean,
+    coverBit: number,
   ) {
     const entry = map.get(name);
     if (!entry) return false;
-    addPostingByMapEntry(entry, multiplier, touchedState, markAnchor);
+    addPostingByMapEntry(entry, multiplier, touchedState, markAnchor, coverBit);
     return true;
   }
 
@@ -492,12 +511,15 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
         if (distance > (raw.length > 6 ? 2 : 1)) continue;
 
         // Fuzzy hits *are* anchor-quality: the term we matched is a real
-        // indexed word, just spelled slightly differently.
+        // indexed word, just spelled slightly differently. They count toward
+        // multi-token coverage via the non-token anchor bit (a fuzzy match
+        // doesn't correspond to a single user-typed token slot).
         addPostingByTokenId(
           tokenId,
           distance === 1 ? 0.64 : 0.42,
           touchedState,
           true,
+          1 << 31,
         );
         if (fuzzyAnchors && raw.length >= 2) fuzzyAnchors.push(raw);
 
@@ -562,25 +584,73 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     // never returned a hit for a longer-than-4-char query token. That made
     // matchedDirect=1 for queries like "router", which then forced the
     // expensive bigram channel to fire and added 20+ ms of latency.)
+    // Distinct query tokens get distinct bits (cap at 31 tokens; bit 31 is
+    // reserved for "covered by the joinedAscii / signal anchor"). The mask
+    // is OR'd into coverMask[doc] when the corresponding posting touches a
+    // doc, which lets the multi-token coverage bonus run without a (capped,
+    // possibly-truncated) substring scan over signalCompact.
+    const tokenBits = new Map<string, number>();
+    let nextBit = 0;
     for (const token of tokens) {
       if (token.length < 2) continue;
-      if (tryFeature(exactMap, token, 1, touchedState, true))
+      if (!tokenBits.has(token) && nextBit < 31) {
+        tokenBits.set(token, 1 << nextBit);
+        nextBit += 1;
+      }
+    }
+    const allTokenBits =
+      nextBit === 0 ? 0 : (nextBit === 31 ? 0x7fffffff : (1 << nextBit) - 1);
+    const NON_TOKEN_ANCHOR_BIT = 1 << 31;
+
+    for (const token of tokens) {
+      if (token.length < 2) continue;
+      const bit = tokenBits.get(token) ?? 0;
+      if (tryFeature(exactMap, token, 1, touchedState, true, bit))
         matchedDirect += 2;
-      if (tryFeature(prefixMap, token, 0.72, touchedState, true))
+      if (tryFeature(prefixMap, token, 0.72, touchedState, true, bit))
         matchedDirect += 1;
     }
 
     if (compact.length >= 3) {
-      if (tryFeature(joinMap, compact, 1.1, touchedState, true))
+      if (
+        tryFeature(joinMap, compact, 1.1, touchedState, true, NON_TOKEN_ANCHOR_BIT)
+      )
         matchedDirect += 1;
     }
 
     if (joinedAscii.length >= 3) {
-      if (tryFeature(signalMap, joinedAscii, 1.25, touchedState, true))
+      if (
+        tryFeature(
+          signalMap,
+          joinedAscii,
+          1.25,
+          touchedState,
+          true,
+          NON_TOKEN_ANCHOR_BIT,
+        )
+      )
         matchedDirect += 2;
-      if (tryFeature(prefixMap, joinedAscii, 0.88, touchedState, true))
+      if (
+        tryFeature(
+          prefixMap,
+          joinedAscii,
+          0.88,
+          touchedState,
+          true,
+          NON_TOKEN_ANCHOR_BIT,
+        )
+      )
         matchedDirect += 1;
-      if (tryFeature(joinMap, joinedAscii, 1.08, touchedState, true))
+      if (
+        tryFeature(
+          joinMap,
+          joinedAscii,
+          1.08,
+          touchedState,
+          true,
+          NON_TOKEN_ANCHOR_BIT,
+        )
+      )
         matchedDirect += 1;
     }
 
@@ -596,8 +666,8 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
           const gram = compact.slice(index, index + 2);
           // Bigrams are explicitly NOT anchors — they're the noise channel
           // that the gate exists to suppress. Don't mark gate from them.
-          tryFeature(asciiBigramMap, gram, 0.17, touchedState, false);
-          tryFeature(hanBigramMap, gram, 0.28, touchedState, false);
+          tryFeature(asciiBigramMap, gram, 0.17, touchedState, false, 0);
+          tryFeature(hanBigramMap, gram, 0.28, touchedState, false, 0);
         }
       }
       if (joinedAscii.length >= 3) {
@@ -608,6 +678,7 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
             0.22,
             touchedState,
             false,
+            0,
           );
         }
       }
@@ -704,16 +775,30 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       if (joinedAscii.length >= 3 && doc.signalAscii.includes(joinedAscii)) {
         score += 125;
       }
+      // Multi-token coverage bonus. A token is "covered" by a doc when EITHER
+      //   (a) one of its postings (exact / prefix) touched the doc — checked
+      //       via the per-query coverage mask we built during the posting
+      //       pass; this is fast and correct even on long-body docs whose
+      //       tokens live past signalMaxLength,
+      //   OR
+      //   (b) the token appears as a substring of the signal text — catches
+      //       cases like query "useState" hitting docs that contain
+      //       "useStateContext" in the title (we don't tokenize the suffix
+      //       boundary so the exact posting wouldn't fire).
+      // Both checks are cheap, so we combine them.
       if (tokens.length > 1) {
         let hitAll = true;
+        const docMask = coverMask[docId];
         for (const token of tokens) {
+          const bit = tokenBits.get(token) ?? 0;
+          if (bit !== 0 && (docMask & bit) !== 0) continue;
           if (
-            !doc.signalCompact.includes(token) &&
-            !doc.signalAscii.includes(token)
-          ) {
-            hitAll = false;
-            break;
-          }
+            doc.signalCompact.includes(token) ||
+            doc.signalAscii.includes(token)
+          )
+            continue;
+          hitAll = false;
+          break;
         }
         if (hitAll) score += 36;
       }
