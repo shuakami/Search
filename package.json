@@ -55,7 +55,20 @@
       "import": "./dist/highlight.js",
       "require": "./dist/highlight.cjs"
     },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
+    },
     "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "bin": {
     "shuakami-search": "./dist/cli.js"
@@ -83,6 +96,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@types/react": "^19.2.14",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
     "eslint": "^8.57.0",
@@ -91,6 +105,7 @@
     "lunr": "^2.3.9",
     "minisearch": "^7.1.0",
     "playwright-core": "^1.59.1",
+    "react": "^19.2.5",
     "tsup": "^8.1.0",
     "tsx": "^4.15.0",
     "typescript": "^5.4.5",
