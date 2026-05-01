@@ -15,6 +15,7 @@ import {
   generateDeletes,
   grams,
   isAsciiToken,
+  isHanChar,
   normalizeText,
   tokenize,
 } from "./tokenizer";
@@ -224,8 +225,24 @@ function collectFieldFeatures(
     addScore(featureMap, `j:${compact}`, Math.round(baseWeight * 1.08));
   }
 
-  if (!options.skipCompactJoin && compact.length >= 2 && compact.length <= 24) {
-    for (const gram of grams(compact, 2, 2)) {
+  // CJK bigrams. Earlier we only emitted these when the *whole* field compact
+  // was ≤24 chars, which silently disabled CJK indexing on every body field
+  // longer than a few sentences. Fan them out across the full token stream
+  // instead: every pair of adjacent CJK tokens (single hanzi each, after the
+  // tokenizer's CJK split) becomes one `h:` feature.
+  if (!options.skipCompactJoin) {
+    const seenHanGrams = new Set<string>();
+    for (let i = 0; i + 1 < tokens.length; i += 1) {
+      const left = tokens[i];
+      const right = tokens[i + 1];
+      // Each CJK-character token is exactly one hanzi long after our
+      // tokenizer's split. Anything longer is ASCII/code/symbol, which
+      // shouldn't go into the han bigram table.
+      if (left.length !== 1 || right.length !== 1) continue;
+      if (!isHanChar(left) || !isHanChar(right)) continue;
+      const gram = left + right;
+      if (seenHanGrams.has(gram)) continue;
+      seenHanGrams.add(gram);
       addScore(
         featureMap,
         `h:${gram}`,
@@ -378,7 +395,13 @@ export function buildIndex(
     options.storeFields ?? resolvedFields.map((field) => field.name);
   const tagsField = options.tagsField;
   const fuzzy = options.fuzzy !== false;
-  const signalMaxLength = options.signalMaxLength ?? 512;
+  // 512 was tuned for a tiny FAQ-shaped corpus and proved far too aggressive
+  // on real bodies — wiki / Stack Overflow / news articles have 1–5 KB of
+  // content and we were truncating the gate signal after one paragraph. A
+  // 4 KB cap keeps long-doc recall close to oracle while still cutting the
+  // very long pages (full books, manpages) that would otherwise dominate
+  // pack size.
+  const signalMaxLength = options.signalMaxLength ?? 4096;
 
   // The signal default keeps every non-URL field — URLs introduce noisy
   // collapsed forms that dilute substring boosts. A length cap on the whole

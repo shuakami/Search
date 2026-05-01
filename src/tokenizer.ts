@@ -87,6 +87,13 @@ export function isAsciiToken(token: string): boolean {
   return /^[a-z0-9]+$/.test(token);
 }
 
+/** True iff `char` is a single CJK ideograph (U+3400..U+9FFF). */
+export function isHanChar(char: string): boolean {
+  if (char.length !== 1) return false;
+  const code = char.charCodeAt(0);
+  return code >= 0x3400 && code <= 0x9fff;
+}
+
 /** Concatenate ASCII runs only — useful for matching `ssl check` against `sslcheck`. */
 export function asciiJoin(input: string): string {
   const matches = normalizeText(input).match(ALNUM_RUN_RE);

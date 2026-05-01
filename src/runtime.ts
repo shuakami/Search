@@ -296,14 +296,25 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     for (let tag = 0; tag < tagCount; tag += 1) {
       tags.push(readString());
     }
-    // Build the gate join once at load time. It includes every stored field
-    // *and* tags so URLs/tag-only matches can satisfy the query-quality gate.
-    const gateParts: string[] = [];
+    // Build the gate join once at load time. It must include the *indexed*
+    // signal text, not just the stored fields — apps frequently store only
+    // `title` + `url` while indexing a much larger `body`, and we don't want
+    // queries that legitimately hit the body to be rejected by the gate.
+    // The signal join already contains every non-URL indexed field, so we
+    // start from it and union the stored URLs and tags on top so URL-only or
+    // tag-only matches still satisfy the gate.
+    const gateParts: string[] = [signalCompact];
     for (const name of storedFieldNames) gateParts.push(fields[name] || "");
     for (const tag of tags) gateParts.push(tag);
     const gateJoined = gateParts.join(" ");
+    // signalCompact / signalAscii are *already* compacted, so re-running the
+    // join over them is idempotent — we just need to fold in the URLs/tags.
     const gateCompact = compactJoin(gateJoined);
-    const gateAscii = asciiJoin(gateJoined);
+    const gateAscii = asciiJoin(
+      [signalAscii, ...storedFieldNames.map((n) => fields[n] || ""), ...tags].join(
+        " ",
+      ),
+    );
     docs[index] = {
       id,
       fields,
