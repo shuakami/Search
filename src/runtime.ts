@@ -75,9 +75,77 @@ export interface SearchOptions {
   highlightFields?: readonly string[];
 }
 
+/**
+ * One typo correction applied during fuzzy recovery — useful for surfacing
+ * a "did you mean: …" hint in the UI.
+ */
+export interface QueryCorrection {
+  /** The token the user actually typed, lowercased and normalised. */
+  from: string;
+  /** The indexed term the engine matched it to. */
+  to: string;
+  /** Damerau–Levenshtein edit distance between `from` and `to` (1 or 2). */
+  distance: number;
+}
+
+/**
+ * Rich search result that also exposes whether the engine had to correct any
+ * typos to find these hits, plus a single suggested rewrite of the original
+ * query (`correctedQuery`) for "did you mean" prompts.
+ */
+export interface DetailedSearchResult {
+  hits: SearchHit[];
+  /**
+   * The original query rewritten with corrections applied. `null` when the
+   * engine did not need to correct anything (i.e. all hits came from direct
+   * matches).
+   */
+  correctedQuery: string | null;
+  /** Each individual correction used while running the query. */
+  corrections: readonly QueryCorrection[];
+}
+
+/** A single autocomplete candidate produced by `suggest()`. */
+export interface SuggestHit {
+  /** The completed term (lowercased, indexed form). */
+  term: string;
+  /**
+   * Number of documents the term occurs in. Higher = more popular within the
+   * corpus, useful for ranking suggestions in the UI.
+   */
+  docFrequency: number;
+  /** How the suggestion was obtained — direct prefix match or fuzzy recovery. */
+  kind: "prefix" | "fuzzy";
+  /** Edit distance from the input prefix when `kind === "fuzzy"`. */
+  distance?: number;
+}
+
+export interface SuggestOptions {
+  /** Maximum number of suggestions to return. Default: 8. */
+  limit?: number;
+  /**
+   * If true and no prefix candidates exist, fall back to the fuzzy table to
+   * recover from typos in the prefix itself. Default: true.
+   */
+  fuzzy?: boolean;
+}
+
 export interface SearchEngine {
   /** Run a query. Synchronous, no I/O, no allocations beyond the result list. */
   search(query: string, options?: SearchOptions): SearchHit[];
+  /**
+   * Same as `search()`, but additionally returns the rewritten query and the
+   * list of corrections applied so the UI can show a "did you mean" hint.
+   */
+  searchDetailed(
+    query: string,
+    options?: SearchOptions,
+  ): DetailedSearchResult;
+  /**
+   * Autocomplete / type-ahead helper. Returns up to `limit` indexed terms
+   * that begin with `prefix`, ranked by document frequency. ASCII only.
+   */
+  suggest(prefix: string, options?: SuggestOptions): SuggestHit[];
   /** Stored documents in pack order, useful for warmup / debug. */
   readonly docs: readonly StoredDocument[];
   /** Pack-level statistics, derived from the binary at load time. */
@@ -368,6 +436,7 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     term: string,
     touchedState: { count: number },
     fuzzyAnchors?: string[],
+    corrections?: QueryCorrection[],
   ) {
     if (!term || term.length < 3) return 0;
     // Index emits 2-delete keys for terms ≥ 4 chars. Pairing query at 2-delete
@@ -376,6 +445,9 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     const queryMaxDeletes = term.length >= 6 ? 2 : 1;
     const visited = new Set<number>();
     let accepted = 0;
+    type BestForTerm = { to: string; distance: number };
+    let bestForTerm: BestForTerm | null = null;
+    let bestPostingCount = -1;
 
     /** Returns true when the per-query cap is hit. */
     function tryCandidates(candidates: Int32Array | undefined): boolean {
@@ -404,6 +476,18 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
           touchedState,
         );
         if (fuzzyAnchors && raw.length >= 2) fuzzyAnchors.push(raw);
+
+        // Track the best correction for this term: prefer lower edit distance,
+        // then prefer the more popular token (higher posting count).
+        const postingCount = tokenPostingCounts[tokenId];
+        if (
+          !bestForTerm ||
+          distance < bestForTerm.distance ||
+          (distance === bestForTerm.distance && postingCount > bestPostingCount)
+        ) {
+          bestForTerm = { to: raw, distance };
+          bestPostingCount = postingCount;
+        }
         accepted += 1;
         if (accepted >= 12) return true;
       }
@@ -412,12 +496,17 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
 
     // 1) Direct lookup: the typo may itself be a delete-permutation of a real
     //    token (e.g. "typscript" is "typescript" with 'e' deleted).
-    if (tryCandidates(deleteLookup.get(term))) return accepted;
+    if (!tryCandidates(deleteLookup.get(term))) {
+      // 2) Walk deletions of the typo, intersecting with indexed deletes.
+      const deletions = generateDeletes(term, queryMaxDeletes);
+      for (const deletion of deletions) {
+        if (tryCandidates(deleteLookup.get(deletion))) break;
+      }
+    }
 
-    // 2) Walk deletions of the typo, intersecting with indexed deletes.
-    const deletions = generateDeletes(term, queryMaxDeletes);
-    for (const deletion of deletions) {
-      if (tryCandidates(deleteLookup.get(deletion))) break;
+    const best = bestForTerm as BestForTerm | null;
+    if (corrections && best) {
+      corrections.push({ from: term, to: best.to, distance: best.distance });
     }
     return accepted;
   }
@@ -425,8 +514,14 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
   function rawSearch(query: string, candidateLimit: number) {
     generation = generation === 0xffffffff ? 1 : generation + 1;
     const touchedState = { count: 0 };
+    const corrections: QueryCorrection[] = [];
     const normalized = normalizeText(query);
-    if (!normalized) return [] as { docId: number; score: number }[];
+    const empty = {
+      results: [] as { docId: number; score: number }[],
+      tokens: [] as string[],
+      corrections,
+    };
+    if (!normalized) return empty;
 
     const tokens = tokenize(normalized);
     const compact = compactJoin(normalized);
@@ -473,11 +568,12 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       const lastAsciiToken = [...tokens]
         .reverse()
         .find((token) => /^[a-z0-9]+$/.test(token));
-      if (joinedAscii) rankFuzzy(joinedAscii, touchedState, fuzzyAnchors);
+      if (joinedAscii)
+        rankFuzzy(joinedAscii, touchedState, fuzzyAnchors, corrections);
       if (lastAsciiToken && lastAsciiToken !== joinedAscii)
-        rankFuzzy(lastAsciiToken, touchedState, fuzzyAnchors);
+        rankFuzzy(lastAsciiToken, touchedState, fuzzyAnchors, corrections);
       if (!joinedAscii && compact)
-        rankFuzzy(compact, touchedState, fuzzyAnchors);
+        rankFuzzy(compact, touchedState, fuzzyAnchors, corrections);
     }
 
     // Quality gate: a doc must contain *some* substring of the user's intent,
@@ -581,12 +677,79 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       if (docId < 0) continue;
       results.push({ docId, score: Number(topScores[index].toFixed(2)) });
     }
-    return results;
+    return { results, tokens, corrections };
+  }
+
+  /**
+   * Build a "did you mean" string by walking the original query and replacing
+   * each fuzzy-corrected token with its match. Casing of the surrounding
+   * text is preserved for everything that wasn't corrected.
+   */
+  function rebuildCorrectedQuery(
+    original: string,
+    corrections: readonly QueryCorrection[],
+  ): string | null {
+    if (corrections.length === 0) return null;
+    const map = new Map<string, string>();
+    for (const c of corrections) {
+      // Avoid recommending a replacement that is identical to what the user
+      // typed (after normalisation). This happens when fuzzy fired but the
+      // best candidate is the same string.
+      if (c.from === c.to) continue;
+      // Prefer the lower-distance correction when both apply.
+      const existing = map.get(c.from);
+      if (!existing) map.set(c.from, c.to);
+    }
+    if (map.size === 0) return null;
+
+    // Walk the lowercased version, but emit slices of the original to keep
+    // surrounding casing intact. We replace whole tokens only.
+    const lower = original.toLowerCase();
+    const out: string[] = [];
+    let i = 0;
+    while (i < original.length) {
+      const ch = original.charCodeAt(i);
+      // Scan an alphanumeric run.
+      if (
+        (ch >= 0x30 && ch <= 0x39) ||
+        (ch >= 0x41 && ch <= 0x5a) ||
+        (ch >= 0x61 && ch <= 0x7a)
+      ) {
+        let end = i + 1;
+        while (end < original.length) {
+          const c2 = original.charCodeAt(end);
+          if (
+            (c2 >= 0x30 && c2 <= 0x39) ||
+            (c2 >= 0x41 && c2 <= 0x5a) ||
+            (c2 >= 0x61 && c2 <= 0x7a)
+          ) {
+            end += 1;
+          } else break;
+        }
+        const slice = lower.slice(i, end);
+        const corrected = map.get(slice);
+        out.push(corrected ?? original.slice(i, end));
+        i = end;
+      } else {
+        out.push(original[i]);
+        i += 1;
+      }
+    }
+    const rebuilt = out.join("");
+    return rebuilt.toLowerCase() === original.toLowerCase() ? null : rebuilt;
   }
 
   function search(query: string, options: SearchOptions = {}): SearchHit[] {
+    return searchDetailed(query, options).hits;
+  }
+
+  function searchDetailed(
+    query: string,
+    options: SearchOptions = {},
+  ): DetailedSearchResult {
     const trimmed = String(query || "").trim();
-    if (trimmed.length < 2) return [];
+    if (trimmed.length < 2)
+      return { hits: [], correctedQuery: null, corrections: [] };
 
     const limit = options.limit ?? 10;
     const minScoreRatio = options.minScoreRatio ?? 0.18;
@@ -596,7 +759,9 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       options.highlightFields ?? storedFieldNames;
 
     const candidateLimit = Math.max(limit * 3, 24);
-    const candidates = rawSearch(trimmed, candidateLimit);
+    const raw = rawSearch(trimmed, candidateLimit);
+    const candidates = raw.results;
+    const corrections = raw.corrections;
 
     const needles = buildHighlightNeedles(trimmed);
     let hits: SearchHit[] = candidates.map((candidate, refIndex) => {
@@ -626,7 +791,11 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       hits = hits.map((hit) => ({ ...hit, score: rescore(hit) }));
     }
 
-    if (hits.length === 0) return [];
+    const correctedQuery = rebuildCorrectedQuery(trimmed, corrections);
+
+    if (hits.length === 0) {
+      return { hits: [], correctedQuery, corrections };
+    }
 
     hits.sort((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
@@ -635,9 +804,106 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
 
     const topScore = hits[0].score;
     const minimum = Math.max(0, topScore * minScoreRatio);
-    return hits
+    const filtered = hits
       .filter((hit, index) => index === 0 || hit.score >= minimum)
       .slice(0, limit);
+    return { hits: filtered, correctedQuery, corrections };
+  }
+
+  function suggest(
+    prefix: string,
+    options: SuggestOptions = {},
+  ): SuggestHit[] {
+    const limit = options.limit ?? 8;
+    const allowFuzzy = options.fuzzy !== false;
+    const trimmed = String(prefix || "")
+      .trim()
+      .toLowerCase();
+    if (trimmed.length < 1) return [];
+
+    // Reject obviously non-ASCII prefixes — the prefix index is ASCII-only.
+    if (!/^[a-z0-9]+$/.test(trimmed)) return [];
+
+    const candidates: SuggestHit[] = [];
+    const seen = new Set<string>();
+
+    // Walk every ASCII exact token; this is cheap (Map iteration over ~10–50k
+    // entries even for large corpora) and gives popularity-sorted completions.
+    for (let tokenId = 0; tokenId < tokenCount; tokenId += 1) {
+      if (tokenTypes[tokenId] !== TOKEN_TYPE_EXACT) continue;
+      const term = tokenTerms[tokenId];
+      if (!term || term.length < trimmed.length) continue;
+      if (!term.startsWith(trimmed)) continue;
+      if (seen.has(term)) continue;
+      seen.add(term);
+      candidates.push({
+        term,
+        docFrequency: tokenPostingCounts[tokenId],
+        kind: "prefix",
+      });
+    }
+
+    candidates.sort((left, right) => {
+      // Prefer exact-length match first, then higher doc frequency, then
+      // shorter terms (alphabetically tied terms get the popular one first).
+      if (left.term === trimmed && right.term !== trimmed) return -1;
+      if (right.term === trimmed && left.term !== trimmed) return 1;
+      if (right.docFrequency !== left.docFrequency)
+        return right.docFrequency - left.docFrequency;
+      return left.term.length - right.term.length;
+    });
+
+    if (candidates.length > 0 || !allowFuzzy) {
+      return candidates.slice(0, limit);
+    }
+
+    // No prefix candidates — fall back to prefix-aware fuzzy, comparing the
+    // typo against the leading slice of every indexed term. This is O(N) over
+    // exact tokens (cheap; ~10-50k entries even on big corpora) but only
+    // fires when the literal prefix scan returned nothing.
+    if (trimmed.length < 3) return [];
+    const fuzzy: SuggestHit[] = [];
+    const maxDistance = trimmed.length >= 6 ? 2 : 1;
+
+    for (let tokenId = 0; tokenId < tokenCount; tokenId += 1) {
+      if (tokenTypes[tokenId] !== TOKEN_TYPE_EXACT) continue;
+      const term = tokenTerms[tokenId];
+      if (!term) continue;
+      // The candidate must be at least roughly the typo's length, but we don't
+      // require it to *be* the typo's length — we compare against the term's
+      // leading slice to recover partial-word typos like "trabsl" → translate.
+      if (term.length < trimmed.length - 1) continue;
+      // Cheap reject: first chars must agree (same edit-distance heuristic
+      // used by `rankFuzzy`). Avoid scanning every token in the corpus.
+      if (term[0] !== trimmed[0]) continue;
+
+      // Compare the typo against term.slice(0, trimmed.length + 1) so a single
+      // insertion / deletion at the end still matches. Two slices catch the
+      // most-common cases (one extra char, one fewer char).
+      const slice = term.slice(0, trimmed.length);
+      const sliceLong = term.slice(0, trimmed.length + 1);
+      const dShort = damerauLevenshtein(slice, trimmed, maxDistance);
+      const dLong =
+        sliceLong === slice
+          ? Number.POSITIVE_INFINITY
+          : damerauLevenshtein(sliceLong, trimmed, maxDistance);
+      const distance = Math.min(dShort, dLong);
+      if (distance > maxDistance) continue;
+
+      fuzzy.push({
+        term,
+        docFrequency: tokenPostingCounts[tokenId],
+        kind: "fuzzy",
+        distance,
+      });
+    }
+
+    fuzzy.sort((left, right) => {
+      if (left.distance !== right.distance)
+        return (left.distance ?? 9) - (right.distance ?? 9);
+      return right.docFrequency - left.docFrequency;
+    });
+    return fuzzy.slice(0, limit);
   }
 
   const totalPostings = (() => {
@@ -652,6 +918,8 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
 
   return {
     search,
+    searchDetailed,
+    suggest,
     docs: docs.map((doc) => ({
       id: doc.id,
       fields: doc.fields,

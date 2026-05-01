@@ -182,6 +182,62 @@ describe("buildIndex / loadIndex", () => {
     expect(engine.search("wether")[0]?.doc.id).toBe("1");
   });
 
+  it("returns a did-you-mean suggestion when fuzzy fires", () => {
+    const { pack } = buildIndex(DOCS, {
+      fields: { title: 5, body: 1, url: { weight: 1, kind: "url" } },
+      tagsField: "tags",
+    });
+    const engine = loadIndex(pack);
+    const result = engine.searchDetailed("translte");
+    expect(result.hits[0]?.doc.id).toBe("2");
+    expect(result.correctedQuery).toBe("translate");
+    expect(result.corrections.length).toBeGreaterThan(0);
+    expect(result.corrections[0].to).toBe("translate");
+  });
+
+  it("returns no correction when the query was already a direct hit", () => {
+    const { pack } = buildIndex(DOCS, {
+      fields: { title: 5, body: 1, url: { weight: 1, kind: "url" } },
+      tagsField: "tags",
+    });
+    const engine = loadIndex(pack);
+    const result = engine.searchDetailed("weather");
+    expect(result.hits[0]?.doc.id).toBe("1");
+    expect(result.correctedQuery).toBeNull();
+    expect(result.corrections).toEqual([]);
+  });
+
+  it("autocompletes ASCII prefixes ranked by document frequency", () => {
+    const { pack } = buildIndex(DOCS, {
+      fields: { title: 5, body: 1, url: { weight: 1, kind: "url" } },
+      tagsField: "tags",
+    });
+    const engine = loadIndex(pack);
+    const hits = engine.suggest("trans");
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].term.startsWith("trans")).toBe(true);
+    // All prefix hits should be exact prefixes of "trans".
+    expect(hits.every((hit) => hit.kind === "prefix")).toBe(true);
+  });
+
+  it("falls back to fuzzy suggestions when the prefix has a typo", () => {
+    const { pack } = buildIndex(DOCS, {
+      fields: { title: 5, body: 1, url: { weight: 1, kind: "url" } },
+      tagsField: "tags",
+    });
+    const engine = loadIndex(pack);
+    // "trabsl" doesn't prefix any indexed token, but it's 1-edit from
+    // "translate". With fuzzy enabled (default), suggest() should recover it.
+    const fuzzyHits = engine.suggest("trabsl");
+    expect(fuzzyHits.length).toBeGreaterThan(0);
+    expect(fuzzyHits[0].kind).toBe("fuzzy");
+    expect(fuzzyHits[0].term).toBe("translate");
+
+    // With fuzzy disabled, no recovery.
+    const strictHits = engine.suggest("trabsl", { fuzzy: false });
+    expect(strictHits).toEqual([]);
+  });
+
   it("returns highlight ranges that match the original casing", () => {
     const { pack } = buildIndex(DOCS, {
       fields: { title: 5, body: 1 },

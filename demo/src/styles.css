@@ -328,6 +328,26 @@ code, pre, kbd { font-family: var(--mono); }
   color: var(--muted);
 }
 
+.hint {
+  margin: 0;
+  padding: 14px 22px 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-family: var(--font-sans);
+}
+.hint button {
+  font: inherit;
+  font-style: italic;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  margin-left: 6px;
+}
+.hint button:hover { border-bottom-color: var(--ink); }
+
 /* ===== copy section ===== */
 
 .copy {
