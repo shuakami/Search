@@ -393,12 +393,19 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
   const scores = new Float32Array(docCount);
   const touched = new Uint32Array(docCount);
   const seenGeneration = new Uint32Array(docCount);
+  // Per-doc gate-auto-pass marker. When a posting *from an anchor-quality
+  // feature* (exact / prefix / joinedAscii signal / joinedAscii join) touches
+  // a doc, we mark it. The query-quality gate then short-circuits for
+  // marked docs and avoids 4–6 String.includes() calls per doc, which on
+  // 10k-doc corpora cuts hot-query latency by 5–10×.
+  const gateGeneration = new Uint32Array(docCount);
   let generation = 1;
 
   function addPostingByTokenId(
     tokenId: number,
     multiplier: number,
     touchedState: { count: number },
+    markAnchor: boolean,
   ) {
     const offset = tokenPostingOffsets[tokenId];
     const count = tokenPostingCounts[tokenId];
@@ -418,6 +425,7 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
         touched[touchedState.count++] = docId;
       }
       scores[docId] += score * multiplier;
+      if (markAnchor) gateGeneration[docId] = generation;
     }
   }
 
@@ -425,10 +433,11 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     entry: TokenSlot,
     multiplier: number,
     touchedState: { count: number },
+    markAnchor: boolean,
   ) {
     const tokenId = tokenOffsetToId.get(entry.offset);
     if (tokenId === undefined) return;
-    addPostingByTokenId(tokenId, multiplier, touchedState);
+    addPostingByTokenId(tokenId, multiplier, touchedState, markAnchor);
   }
 
   function tryFeature(
@@ -436,10 +445,11 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     name: string,
     multiplier: number,
     touchedState: { count: number },
+    markAnchor: boolean,
   ) {
     const entry = map.get(name);
     if (!entry) return false;
-    addPostingByMapEntry(entry, multiplier, touchedState);
+    addPostingByMapEntry(entry, multiplier, touchedState, markAnchor);
     return true;
   }
 
@@ -481,10 +491,13 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
         );
         if (distance > (raw.length > 6 ? 2 : 1)) continue;
 
+        // Fuzzy hits *are* anchor-quality: the term we matched is a real
+        // indexed word, just spelled slightly differently.
         addPostingByTokenId(
           tokenId,
           distance === 1 ? 0.64 : 0.42,
           touchedState,
+          true,
         );
         if (fuzzyAnchors && raw.length >= 2) fuzzyAnchors.push(raw);
 
@@ -539,38 +552,64 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     const joinedAscii = asciiJoin(normalized);
     let matchedDirect = 0;
 
+    // Pre-pass: fire the anchor channels first so we know whether to bother
+    // with the (much more expensive) bigram noise channel below.
+    //
+    // An exact hit on a real indexed token is *strong* evidence — it counts
+    // as 2 toward matchedDirect on its own. (The previous "+1 exact, +1
+    // prefix" scheme silently undercounted ASCII tokens of length ≥5,
+    // because our prefix index only stores prefixes of length 2–4 and so
+    // never returned a hit for a longer-than-4-char query token. That made
+    // matchedDirect=1 for queries like "router", which then forced the
+    // expensive bigram channel to fire and added 20+ ms of latency.)
     for (const token of tokens) {
       if (token.length < 2) continue;
-      if (tryFeature(exactMap, token, 1, touchedState)) matchedDirect += 1;
-      if (tryFeature(prefixMap, token, 0.72, touchedState)) matchedDirect += 1;
+      if (tryFeature(exactMap, token, 1, touchedState, true))
+        matchedDirect += 2;
+      if (tryFeature(prefixMap, token, 0.72, touchedState, true))
+        matchedDirect += 1;
     }
 
     if (compact.length >= 3) {
-      if (tryFeature(joinMap, compact, 1.1, touchedState)) matchedDirect += 1;
-    }
-    if (compact.length >= 2 && compact.length <= 24) {
-      for (let index = 0; index + 2 <= compact.length; index += 1) {
-        const gram = compact.slice(index, index + 2);
-        tryFeature(asciiBigramMap, gram, 0.17, touchedState);
-        tryFeature(hanBigramMap, gram, 0.28, touchedState);
-      }
+      if (tryFeature(joinMap, compact, 1.1, touchedState, true))
+        matchedDirect += 1;
     }
 
     if (joinedAscii.length >= 3) {
-      if (tryFeature(signalMap, joinedAscii, 1.25, touchedState))
+      if (tryFeature(signalMap, joinedAscii, 1.25, touchedState, true))
         matchedDirect += 2;
-      if (tryFeature(prefixMap, joinedAscii, 0.88, touchedState))
+      if (tryFeature(prefixMap, joinedAscii, 0.88, touchedState, true))
         matchedDirect += 1;
-      if (tryFeature(joinMap, joinedAscii, 1.08, touchedState))
+      if (tryFeature(joinMap, joinedAscii, 1.08, touchedState, true))
         matchedDirect += 1;
+    }
 
-      for (let index = 0; index + 2 <= joinedAscii.length; index += 1) {
-        tryFeature(
-          asciiBigramMap,
-          joinedAscii.slice(index, index + 2),
-          0.22,
-          touchedState,
-        );
+    // Bigrams are the fallback / noise channel. They're very expensive on big
+    // corpora because each ASCII bigram (`ro`, `ou`, ...) hits thousands of
+    // postings in real text. Only fire them when the anchor channels haven't
+    // already pinned the corpus — bigrams add nothing to recall once we've
+    // matched the exact term, and they bloat hot-query latency 3–10×.
+    const fireBigrams = matchedDirect < 2;
+    if (fireBigrams) {
+      if (compact.length >= 2 && compact.length <= 24) {
+        for (let index = 0; index + 2 <= compact.length; index += 1) {
+          const gram = compact.slice(index, index + 2);
+          // Bigrams are explicitly NOT anchors — they're the noise channel
+          // that the gate exists to suppress. Don't mark gate from them.
+          tryFeature(asciiBigramMap, gram, 0.17, touchedState, false);
+          tryFeature(hanBigramMap, gram, 0.28, touchedState, false);
+        }
+      }
+      if (joinedAscii.length >= 3) {
+        for (let index = 0; index + 2 <= joinedAscii.length; index += 1) {
+          tryFeature(
+            asciiBigramMap,
+            joinedAscii.slice(index, index + 2),
+            0.22,
+            touchedState,
+            false,
+          );
+        }
       }
     }
 
@@ -622,7 +661,15 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       bigramNeed = Math.max(1, Math.ceil(bigramAnchors.length / 2));
     }
 
-    function passesGate(doc: InternalDocument): boolean {
+    function passesGate(docId: number, doc: InternalDocument): boolean {
+      // Fast path: posting iteration already proved this doc was touched by an
+      // anchor-quality feature (exact / prefix / signal / join / fuzzy on the
+      // user's tokens). No need to substring-search the gate fields.
+      if (gateGeneration[docId] === generation) return true;
+      // Fallback substring path: needed when the user's intent only appears as
+      // a substring of a longer word that the indexer didn't tokenize as the
+      // user typed it. Rare on real corpora, but matters for things like
+      // "abc" matching docs that contain "xyzabc".
       for (const a of strongAnchors) {
         if (doc.gateCompact.includes(a) || doc.gateAscii.includes(a))
           return true;
@@ -648,7 +695,7 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
     for (let index = 0; index < touchedState.count; index += 1) {
       const docId = touched[index];
       const doc = docs[docId];
-      if (!passesGate(doc)) continue;
+      if (!passesGate(docId, doc)) continue;
       let score = scores[docId];
 
       if (compact.length >= 3 && doc.signalCompact.includes(compact)) {
