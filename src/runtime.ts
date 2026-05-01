@@ -598,8 +598,6 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
         nextBit += 1;
       }
     }
-    const allTokenBits =
-      nextBit === 0 ? 0 : (nextBit === 31 ? 0x7fffffff : (1 << nextBit) - 1);
     const NON_TOKEN_ANCHOR_BIT = 1 << 31;
 
     for (const token of tokens) {
