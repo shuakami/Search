@@ -55,9 +55,9 @@ let engine: SearchEngine | null = null;
 let active: PackEntry | null = null;
 const cache = new Map<string, SearchEngine>();
 const placeholders: Record<string, string> = {
-  ascii: "try: typescript,  machine learning,  react hooks,  reaact (typo)",
-  cjk: "试一下: 人工智能, 北京, 算法, 清华大学, 中文(typo)",
-  code: "try: useState,  __init__,  goroutine,  Vec<T>,  fn main",
+  ascii: "search…",
+  cjk: "搜索…",
+  code: "search…",
 };
 
 async function loadManifest(): Promise<PackEntry[]> {
@@ -89,7 +89,7 @@ function fmtBytes(bytes: number): string {
 }
 
 function renderCorpusMeta(entry: PackEntry) {
-  corpusMetaEl.textContent = `${entry.docs.toLocaleString()} documents, ${fmtBytes(entry.bytes)}`;
+  corpusMetaEl.textContent = `${entry.label} · ${entry.docs.toLocaleString()} docs · ${fmtBytes(entry.bytes)}`;
 }
 
 function renderTabs(entries: PackEntry[]) {

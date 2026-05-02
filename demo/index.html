@@ -36,91 +36,73 @@
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <div class="hero__inner">
-        <nav class="hero__nav">
-          <span class="hero__brand">@shuakami/search</span>
-          <span class="hero__nav-spacer"></span>
-          <a href="https://github.com/shuakami/Search">github</a>
-          <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
-          <a href="#demo">demo</a>
-        </nav>
+    <nav class="topnav">
+      <span class="topnav__brand">@shuakami/search</span>
+      <span class="topnav__spacer"></span>
+      <a href="https://github.com/shuakami/Search">github</a>
+      <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
+      <a href="#about">about</a>
+    </nav>
 
-        <h1 class="hero__headline">
-          a search engine that<br />
-          <em>fits in a Uint8Array.</em>
-        </h1>
+    <main id="demo" class="stage">
+      <p class="stage__lede">
+        a tiny, zero-dependency full-text search engine.
+        <em>try it below — every keystroke runs locally in your browser.</em>
+      </p>
 
-        <p class="hero__lede">
-          build the index once. ship one binary. query in microseconds — in the
-          browser, in node, anywhere javascript runs. zero dependencies.
-        </p>
+      <section class="panel">
+        <nav class="panel__tabs" id="corpus-tabs" role="tablist"></nav>
 
-        <dl class="hero__stats">
-          <div>
-            <dt>p50 query, chinese wikipedia</dt>
-            <dd>0.16<span>&nbsp;ms</span></dd>
-          </div>
-          <div>
-            <dt>runtime, gzipped</dt>
-            <dd>5.7<span>&nbsp;kb</span></dd>
-          </div>
-          <div>
-            <dt>dependencies</dt>
-            <dd>0</dd>
-          </div>
-        </dl>
-      </div>
-    </header>
-
-    <section id="demo" class="demo">
-      <div class="demo__inner">
-        <header class="demo__header">
-          <h2>try it on real corpora.</h2>
-          <p>
-            four datasets, packed into one binary each. pick one, type, watch
-            the latency line settle. everything below runs locally in your
-            browser — no server.
-          </p>
-        </header>
-
-        <div class="demo__chrome">
-          <div class="demo__topbar">
-            <span class="demo__label">live demo</span>
-            <span id="corpus-meta" class="demo__meta">loading…</span>
-          </div>
-
-          <div class="demo__corpora" id="corpus-tabs"></div>
-
-          <div class="demo__input-wrap">
-            <svg class="demo__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.5" />
-              <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            </svg>
-            <input
-              id="q"
-              class="demo__input"
-              type="search"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="search…"
-              autofocus
-            />
-            <kbd class="demo__hint">↵</kbd>
-          </div>
-
-          <div class="demo__statline">
-            <span><b id="stat-results">0</b> results</span>
-            <span><b id="stat-latency">—</b> ms this query</span>
-            <span class="demo__faint">p50 over last 32: <b id="stat-p50">—</b> ms</span>
-            <span class="demo__faint">p99: <b id="stat-p99">—</b> ms</span>
-          </div>
-
-          <ul id="results" class="results"></ul>
-
-          <p id="empty" class="empty">type to search the corpus loaded above.</p>
+        <div class="panel__input">
+          <svg class="panel__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.5" />
+            <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          <input
+            id="q"
+            class="panel__field"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="search…"
+            autofocus
+          />
+          <kbd class="panel__hint">↵</kbd>
         </div>
-      </div>
+
+        <ul id="results" class="panel__results"></ul>
+        <p id="empty" class="panel__empty">type to search.</p>
+
+        <footer class="panel__foot">
+          <span id="corpus-meta" class="panel__meta">loading…</span>
+          <span class="panel__spacer"></span>
+          <span class="panel__stat"><b id="stat-results">0</b>&nbsp;results</span>
+          <span class="panel__stat"><b id="stat-latency">—</b>&nbsp;ms</span>
+          <span class="panel__stat panel__faint">p50&nbsp;<b id="stat-p50">—</b></span>
+          <span class="panel__stat panel__faint">p99&nbsp;<b id="stat-p99">—</b></span>
+        </footer>
+      </section>
+    </main>
+
+    <section id="about" class="about">
+      <p class="about__lede">
+        build the index once. ship one binary. query in microseconds — in the
+        browser, in node, anywhere javascript runs.
+      </p>
+      <dl class="about__stats">
+        <div>
+          <dt>p50 query, chinese wikipedia</dt>
+          <dd>0.07<span>&nbsp;ms</span></dd>
+        </div>
+        <div>
+          <dt>runtime, gzipped</dt>
+          <dd>5.7<span>&nbsp;kb</span></dd>
+        </div>
+        <div>
+          <dt>dependencies</dt>
+          <dd>0</dd>
+        </div>
+      </dl>
     </section>
 
     <section class="copy">
