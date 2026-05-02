@@ -40,7 +40,7 @@ const sets: DemoSet[] = [
   {
     slug: "hn",
     source: "hn-stories.json",
-    label: "Hacker News",
+    label: "hacker news",
     caption: "story titles, mostly English",
     language: "ascii",
     limit: 3000,
@@ -59,7 +59,7 @@ const sets: DemoSet[] = [
   {
     slug: "stackoverflow",
     source: "stackoverflow.json",
-    label: "Stack Overflow",
+    label: "stack overflow",
     caption: "high-vote technical questions",
     language: "ascii",
     limit: 2500,
@@ -79,7 +79,7 @@ const sets: DemoSet[] = [
   {
     slug: "wiki-zh",
     source: "wiki-zh.json",
-    label: "中文 Wikipedia",
+    label: "中文 wikipedia",
     caption: "intro paragraphs, mixed-script",
     language: "cjk",
     limit: 2500,
@@ -97,7 +97,7 @@ const sets: DemoSet[] = [
   {
     slug: "code",
     source: "github-code.json",
-    label: "Source code",
+    label: "source code",
     caption: "OSS files: react, vue, rust, go, python",
     language: "code",
     limit: 1500,

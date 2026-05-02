@@ -1,6 +1,6 @@
 /* Design language:
  *
- *   - Dark, near-monochrome. One restrained accent.
+ *   - Light, near-monochrome on a warm cream paper. One restrained rust accent.
  *   - Typography-led — Fraunces (display serif), Inter (UI), JetBrains Mono.
  *   - Generous whitespace, hairline rules, no gradients, no shadows.
  *   - All-lowercase labels, no decorative bullets, no shouty caps.
@@ -8,16 +8,17 @@
  */
 
 :root {
-  --bg:        #0b0b0c;
-  --bg-soft:   #111114;
-  --bg-card:   #131317;
-  --rule:      #25252b;
-  --rule-soft: #1d1d22;
-  --fg:        #e8e8ea;
-  --fg-mute:   #a4a4ab;
-  --fg-faint:  #6a6a72;
-  --accent:    #ff7a45;
-  --accent-soft: #ff7a4520;
+  color-scheme: light;
+  --bg:        #f6f4ef;
+  --bg-soft:   #efece4;
+  --bg-card:   #ffffff;
+  --rule:      #d8d3c7;
+  --rule-soft: #e6e1d4;
+  --fg:        #1b1b1b;
+  --fg-mute:   #555153;
+  --fg-faint:  #8c8780;
+  --accent:    #c75f3c;
+  --accent-soft: #c75f3c1f;
   --maxw: 1080px;
 
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -400,10 +401,10 @@ code {
   color: var(--fg);
 }
 .snippet code .t-c { color: var(--fg-faint); font-style: italic; }
-.snippet code .t-k { color: #b894f6; }
-.snippet code .t-f { color: #f6c987; }
+.snippet code .t-k { color: #6f42c1; }
+.snippet code .t-f { color: #8a4d11; }
 .snippet code .t-s { color: var(--accent); }
-.snippet code .t-n { color: #98d6e0; }
+.snippet code .t-n { color: #0a6e7c; }
 .snippet code .t-o { color: var(--fg-mute); }
 
 /* ---------- Footer ---------- */

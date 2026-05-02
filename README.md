@@ -1,33 +1,15 @@
-<!-- prettier-ignore-start -->
-<p align="center">
-  <a href="https://shuakami.github.io/Search/">
-    <img src="docs/figures/hero.png" alt="@shuakami/search — a search engine that fits in a Uint8Array" width="100%" />
-  </a>
-</p>
+[![hero](docs/figures/hero.png)](https://shuakami.github.io/Search/)
 
-<h1 align="center">@shuakami/search</h1>
+# @shuakami/search
 
-<p align="center">
-  Tiny, zero-dependency full-text search for JavaScript. Build a binary index once, query in microseconds —
-  in the browser, in Node, anywhere JavaScript runs.
-</p>
+tiny, zero-dependency full-text search for javascript. build a binary index once, query in microseconds — in the browser, in node, anywhere javascript runs.
 
-<p align="center">
-  <a href="https://shuakami.github.io/Search/"><strong>Live demo →</strong></a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/shuakami/Search/blob/main/LICENSE">MIT</a>
-</p>
+[live demo](https://shuakami.github.io/Search/) · [npm](https://www.npmjs.com/package/@shuakami/search) · [mit](https://github.com/shuakami/Search/blob/main/LICENSE)
 
-<p align="center">
-  <a href="https://github.com/shuakami/Search/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/shuakami/Search/ci.yml?branch=main&label=CI&style=flat-square"></a>
-  <img alt="bundle" src="https://img.shields.io/badge/runtime-14_KB-1f1f22?style=flat-square">
-  <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-1f1f22?style=flat-square">
-  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A5_18-1f1f22?style=flat-square">
-</p>
-
-<!-- prettier-ignore-end -->
+[![ci](https://img.shields.io/github/actions/workflow/status/shuakami/Search/ci.yml?branch=main&label=ci&style=flat-square)](https://github.com/shuakami/Search/actions/workflows/ci.yml)
+![runtime](https://img.shields.io/badge/runtime-14_kb-1f1f22?style=flat-square)
+![dependencies](https://img.shields.io/badge/dependencies-0-1f1f22?style=flat-square)
+![node](https://img.shields.io/badge/node-%E2%89%A5_18-1f1f22?style=flat-square)
 
 ---
 

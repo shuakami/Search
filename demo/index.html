@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f6f4ef" />
     <title>@shuakami/search — sub-millisecond full-text search for any JS</title>
     <meta
       name="description"
@@ -46,13 +47,13 @@
         </nav>
 
         <h1 class="hero__headline">
-          A search engine that<br />
+          a search engine that<br />
           <em>fits in a Uint8Array.</em>
         </h1>
 
         <p class="hero__lede">
-          Build the index once. Ship one binary. Query in microseconds — in the
-          browser, in Node, anywhere JavaScript runs. Zero dependencies.
+          build the index once. ship one binary. query in microseconds — in the
+          browser, in node, anywhere javascript runs. zero dependencies.
         </p>
 
         <dl class="hero__stats">
@@ -75,10 +76,10 @@
     <section id="demo" class="demo">
       <div class="demo__inner">
         <header class="demo__header">
-          <h2>Try it on real corpora.</h2>
+          <h2>try it on real corpora.</h2>
           <p>
-            Four datasets, packed into one binary each. Pick one, type, watch
-            the latency line settle. Everything below runs locally in your
+            four datasets, packed into one binary each. pick one, type, watch
+            the latency line settle. everything below runs locally in your
             browser — no server.
           </p>
         </header>
@@ -124,28 +125,28 @@
 
     <section class="copy">
       <div class="copy__col">
-        <h2>One file. Anywhere JS runs.</h2>
+        <h2>one file. anywhere javascript runs.</h2>
         <p>
-          The build step produces a single <code>Uint8Array</code> — no JSON,
-          no per-document overhead, no asynchronous serialization. Drop it
-          into a static asset, transfer it to a Worker, or embed it as
+          the build step produces a single <code>Uint8Array</code> — no json,
+          no per-document overhead, no asynchronous serialization. drop it
+          into a static asset, transfer it to a worker, or embed it as
           base64. <code>loadIndex</code> is synchronous and zero-copy.
         </p>
       </div>
       <div class="copy__col">
-        <h2>A tokenizer that knows it&rsquo;s 2025.</h2>
+        <h2>a tokenizer that knows it&rsquo;s 2026.</h2>
         <p>
-          ASCII runs stay whole. CJK ideographs split per character. Code
+          ascii runs stay whole. cjk ideographs split per character. code
           symbols, full-width punctuation, diacritics, and case fold in one
-          NFKD pass. The same rules run at build and query time, so what
+          nfkd pass. the same rules run at build and query time, so what
           you index is what you search.
         </p>
       </div>
       <div class="copy__col">
-        <h2>Typo tolerance, capped.</h2>
+        <h2>typo tolerance, capped.</h2>
         <p>
-          A SymSpell-style delete table recovers 1–2 edits with bounded
-          work. No exponential fan-out, no surprise tail latency: p99 stays
+          a symspell-style delete table recovers 1–2 edits with bounded
+          work. no exponential fan-out, no surprise tail latency: p99 stays
           flat across every corpus we&rsquo;ve thrown at it.
         </p>
       </div>
@@ -171,7 +172,7 @@
     </section>
 
     <footer class="foot">
-      <span>MIT licensed.</span>
+      <span>mit licensed.</span>
       <a href="https://github.com/shuakami/Search">github.com/shuakami/Search</a>
       <a href="https://www.npmjs.com/package/@shuakami/search">@shuakami/search on npm</a>
     </footer>
