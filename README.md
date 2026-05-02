@@ -1,5 +1,3 @@
-[![hero](docs/figures/hero.png)](https://shuakami.github.io/Search/)
-
 # @shuakami/search
 
 tiny, zero-dependency full-text search for javascript. build a binary index once, query in microseconds — in the browser, in node, anywhere javascript runs.
@@ -10,8 +8,6 @@ tiny, zero-dependency full-text search for javascript. build a binary index once
 ![runtime](https://img.shields.io/badge/runtime-14_kb-1f1f22?style=flat-square)
 ![dependencies](https://img.shields.io/badge/dependencies-0-1f1f22?style=flat-square)
 ![node](https://img.shields.io/badge/node-%E2%89%A5_18-1f1f22?style=flat-square)
-
----
 
 ## Why
 
