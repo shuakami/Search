@@ -773,7 +773,8 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       if (joinedAscii.length >= 3 && doc.signalAscii.includes(joinedAscii)) {
         score += 125;
       }
-      // Multi-token coverage bonus. A token is "covered" by a doc when EITHER
+      // Multi-token coverage. For an N-token query, count how many of the
+      // tokens this doc actually contains. A token is "covered" when EITHER
       //   (a) one of its postings (exact / prefix) touched the doc — checked
       //       via the per-query coverage mask we built during the posting
       //       pass; this is fast and correct even on long-body docs whose
@@ -783,22 +784,57 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       //       cases like query "useState" hitting docs that contain
       //       "useStateContext" in the title (we don't tokenize the suffix
       //       boundary so the exact posting wouldn't fire).
-      // Both checks are cheap, so we combine them.
+      // Docs that cover all tokens get a large additive bonus AND a
+      // multiplicative boost so that they reliably rank above docs that
+      // only cover one common token. Docs that cover < N-1 tokens are
+      // demoted hard — they're unlikely to be what the user wanted.
       if (tokens.length > 1) {
-        let hitAll = true;
         const docMask = coverMask[docId];
+        let coveredCount = 0;
+        let uniqueTokens = 0;
+        const seenInQuery = new Set<string>();
         for (const token of tokens) {
+          if (token.length < 2) continue;
+          if (seenInQuery.has(token)) continue;
+          seenInQuery.add(token);
+          uniqueTokens += 1;
           const bit = tokenBits.get(token) ?? 0;
-          if (bit !== 0 && (docMask & bit) !== 0) continue;
+          if (bit !== 0 && (docMask & bit) !== 0) {
+            coveredCount += 1;
+            continue;
+          }
           if (
             doc.signalCompact.includes(token) ||
             doc.signalAscii.includes(token)
-          )
-            continue;
-          hitAll = false;
-          break;
+          ) {
+            coveredCount += 1;
+          }
         }
-        if (hitAll) score += 36;
+        if (uniqueTokens >= 2) {
+          const ratio = coveredCount / uniqueTokens;
+          if (ratio >= 0.999) {
+            // Full coverage: +200 additive plus 1.6× multiplicative. The
+            // multiplicative term is what keeps a 3-token-match doc above
+            // a doc that scored highly on one common token alone (a base
+            // term like "test" or "buffer" can contribute 5–15 points of
+            // posting score by itself, so a flat additive bonus of 36 was
+            // not enough to outrank it).
+            score = score * 1.6 + 200;
+          } else if (
+            uniqueTokens >= 3 &&
+            coveredCount >= uniqueTokens - 1
+          ) {
+            // Near-full coverage on long queries (3+ tokens) — partial credit.
+            score = score * 1.18 + 60;
+          } else if (coveredCount === 0) {
+            // Zero coverage on a multi-token query strongly suggests
+            // bigram noise picked the doc up. Demote.
+            score *= 0.4;
+          } else if (uniqueTokens >= 3 && coveredCount === 1) {
+            // Many-token query but only one token matched — also weak.
+            score *= 0.7;
+          }
+        }
       }
 
       if (score <= topScores[limit - 1]) continue;

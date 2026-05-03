@@ -265,17 +265,24 @@ function collectFieldFeatures(
   const emitted = new Set<string>();
   for (let index = 0; index < tokens.length; index += 1) {
     let joined = "";
+    let allComponentsValid = true;
     for (
       let width = 1;
       width <= options.maxWindow && index + width <= tokens.length;
       width += 1
     ) {
-      joined += tokens[index + width - 1];
+      const component = tokens[index + width - 1];
+      joined += component;
+      // Single-character "glue" tokens (the `s` in `(args, s, opts)`) are not
+      // legitimate phrase components — accepting them lets the indexer emit
+      // bogus `j:formats` features from `format` + `s` adjacencies, which
+      // then surface unrelated docs when a user types `formats`.
+      if (width >= 2 && component.length < 2) allComponentsValid = false;
       if (joined.length < 3 || joined.length > 12 || emitted.has(joined)) {
         continue;
       }
       emitted.add(joined);
-      if (width > 1) {
+      if (width > 1 && allComponentsValid) {
         addScore(
           featureMap,
           `j:${joined}`,
