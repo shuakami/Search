@@ -9,11 +9,11 @@
       { "key": "flex", "label": "flexsearch" }
     ],
     "groups": [
-      { "label": "hn-titles",      "caption": "10 000 docs, short ascii", "values": { "ours": 88.5, "mini": 85.7, "lunr": 67.8, "flex": 87.9 } },
-      { "label": "stackoverflow",  "caption": "10 000 docs, long technical", "values": { "ours": 84.0, "mini": 82.2, "lunr": 58.7, "flex": 87.1 } },
-      { "label": "wiki-en",        "caption": "10 000 docs, long prose", "values": { "ours": 88.2, "mini": 77.7, "lunr": 68.8, "flex": 87.8 } },
-      { "label": "code",           "caption": "5 876 docs, camelCase + snake_case", "values": { "ours": 80.7, "mini": 84.8, "lunr": 62.5, "flex": 87.5 } },
-      { "label": "wiki-zh",        "caption": "10 000 docs, mixed-script cjk", "values": { "ours": 93.0, "mini": 66.9, "lunr": 43.5, "flex": 71.4 } }
+      { "label": "hn-titles",      "caption": "10 000 docs, short ascii", "values": { "ours": 92.2, "mini": 85.7, "lunr": 67.8, "flex": 87.9 } },
+      { "label": "stackoverflow",  "caption": "10 000 docs, long technical", "values": { "ours": 92.2, "mini": 82.2, "lunr": 58.7, "flex": 87.1 } },
+      { "label": "wiki-en",        "caption": "10 000 docs, long prose", "values": { "ours": 92.5, "mini": 77.7, "lunr": 68.8, "flex": 87.8 } },
+      { "label": "code",           "caption": "5 876 docs, camelCase + snake_case", "values": { "ours": 87.2, "mini": 84.8, "lunr": 62.5, "flex": 87.5 } },
+      { "label": "wiki-zh",        "caption": "10 000 docs, mixed-script cjk", "values": { "ours": 95.3, "mini": 66.9, "lunr": 43.5, "flex": 71.4 } }
     ]
   }
 }

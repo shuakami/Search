@@ -15,6 +15,25 @@ export function mean(values: readonly number[]): number {
   return sum / values.length;
 }
 
+export function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  if (sorted.length % 2 === 1) return sorted[mid];
+  return (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+export function stddev(values: readonly number[]): number {
+  if (values.length < 2) return 0;
+  const m = mean(values);
+  let sumSq = 0;
+  for (const value of values) {
+    const delta = value - m;
+    sumSq += delta * delta;
+  }
+  return Math.sqrt(sumSq / (values.length - 1));
+}
+
 export function nowMs(): number {
   return Number(process.hrtime.bigint()) / 1e6;
 }

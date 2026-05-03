@@ -27,8 +27,10 @@ import {
   formatBytes,
   formatMs,
   mean,
+  median,
   nowMs,
   percentile,
+  stddev,
 } from "./lib/stats";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +42,12 @@ const datasetFilter = readFlag(args, "--dataset");
 const queryCount = Number(readFlag(args, "--queries") ?? 200);
 const limit = Number(readFlag(args, "--limit") ?? 10);
 const warmup = Number(readFlag(args, "--warmup") ?? 1);
+// Number of independent repeat passes used to compute median + stddev. With
+// repeat=1 this collapses back to the original single-pass behaviour. With
+// repeat>=3 the table also reports a `±` stability margin so users can see
+// how consistent the numbers are across runs (a 0.005 ms ± 0.001 ms p50 is a
+// very different proposition from 0.005 ms ± 0.05 ms).
+const repeat = Math.max(1, Number(readFlag(args, "--repeat") ?? 1));
 
 function readFlag(args: string[], name: string): string | undefined {
   const direct = args.find((arg) => arg.startsWith(`${name}=`));
@@ -70,6 +78,12 @@ interface Row {
   p95Ms: number;
   p99Ms: number;
   recall: number;
+  // Standard deviations across repeat passes (set to 0 when repeat=1).
+  p50StddevMs: number;
+  p99StddevMs: number;
+  recallStddev: number;
+  /** Number of repeat passes that contributed to the medians. */
+  repeats: number;
 }
 
 async function runDataset(filename: string) {
@@ -154,39 +168,65 @@ async function runDataset(filename: string) {
         p95Ms: NaN,
         p99Ms: NaN,
         recall: NaN,
+        p50StddevMs: 0,
+        p99StddevMs: 0,
+        recallStddev: 0,
+        repeats: 0,
       });
       continue;
     }
 
-    const samples: number[] = [];
-    let recallSum = 0;
-    let recallCount = 0;
+    // One pass = run every query once, time it, score recall.
+    // We do `repeat` independent passes and then take the *median* of each
+    // statistic (p50 / p99 / recall / mean) across passes — this rejects the
+    // occasional GC / OS hiccup pass while still showing a real distribution.
+    interface Pass {
+      meanMs: number;
+      p50Ms: number;
+      p95Ms: number;
+      p99Ms: number;
+      recall: number;
+    }
+    const passes: Pass[] = [];
     let bailed = false;
 
-    for (let index = 0; index < queries.length; index += 1) {
-      const query = queries[index];
-      const start = nowMs();
-      const results = engine.search(query.query, limit);
-      const elapsed = nowMs() - start;
-      samples.push(elapsed);
-      if (elapsed > QUERY_BUDGET_MS) {
-        process.stdout.write(
-          `  ${engine.name}: query budget exceeded (${elapsed.toFixed(0)} ms on "${query.query}"), bailing\n`,
-        );
-        bailed = true;
-        break;
+    for (let pass = 0; pass < repeat && !bailed; pass += 1) {
+      const samples: number[] = [];
+      let recallSum = 0;
+      let recallCount = 0;
+      for (let index = 0; index < queries.length; index += 1) {
+        const query = queries[index];
+        const start = nowMs();
+        const results = engine.search(query.query, limit);
+        const elapsed = nowMs() - start;
+        samples.push(elapsed);
+        if (elapsed > QUERY_BUDGET_MS) {
+          process.stdout.write(
+            `  ${engine.name}: query budget exceeded (${elapsed.toFixed(0)} ms on "${query.query}"), bailing\n`,
+          );
+          bailed = true;
+          break;
+        }
+        const truth = truthByQuery.get(query.query);
+        if (truth && truth.size > 0) {
+          const got = results.slice(0, Math.min(limit, truth.size));
+          const matched = got.filter((id) => truth.has(id)).length;
+          recallSum += matched / Math.min(limit, truth.size);
+          recallCount += 1;
+        }
       }
-      const truth = truthByQuery.get(query.query);
-      if (truth && truth.size > 0) {
-        const got = results.slice(0, Math.min(limit, truth.size));
-        const matched = got.filter((id) => truth.has(id)).length;
-        recallSum += matched / Math.min(limit, truth.size);
-        recallCount += 1;
-      }
+      if (samples.length < queries.length / 2) continue;
+      passes.push({
+        meanMs: mean(samples),
+        p50Ms: percentile(samples, 50),
+        p95Ms: percentile(samples, 95),
+        p99Ms: percentile(samples, 99),
+        recall: recallCount === 0 ? 0 : recallSum / recallCount,
+      });
     }
 
-    if (bailed && samples.length < queries.length / 2) {
-      // Not enough samples for a meaningful number; mark as N/A.
+    if (passes.length === 0) {
+      // Not enough samples in any pass for a meaningful number.
       rows.push({
         engine: engine.name,
         buildMs: stats.buildMs,
@@ -198,21 +238,34 @@ async function runDataset(filename: string) {
         p95Ms: NaN,
         p99Ms: NaN,
         recall: NaN,
+        p50StddevMs: 0,
+        p99StddevMs: 0,
+        recallStddev: 0,
+        repeats: 0,
       });
       continue;
     }
 
+    const meanSeries = passes.map((p) => p.meanMs);
+    const p50Series = passes.map((p) => p.p50Ms);
+    const p95Series = passes.map((p) => p.p95Ms);
+    const p99Series = passes.map((p) => p.p99Ms);
+    const recallSeries = passes.map((p) => p.recall);
     rows.push({
       engine: engine.name,
       buildMs: stats.buildMs,
       rawBytes: stats.rawBytes,
       gzipBytes: stats.gzipBytes,
       brotliBytes: stats.brotliBytes,
-      meanMs: mean(samples),
-      p50Ms: percentile(samples, 50),
-      p95Ms: percentile(samples, 95),
-      p99Ms: percentile(samples, 99),
-      recall: recallCount === 0 ? 0 : recallSum / recallCount,
+      meanMs: median(meanSeries),
+      p50Ms: median(p50Series),
+      p95Ms: median(p95Series),
+      p99Ms: median(p99Series),
+      recall: median(recallSeries),
+      p50StddevMs: stddev(p50Series),
+      p99StddevMs: stddev(p99Series),
+      recallStddev: stddev(recallSeries),
+      repeats: passes.length,
     });
   }
 
@@ -221,18 +274,46 @@ async function runDataset(filename: string) {
   await mkdir(RESULTS, { recursive: true });
   await fs.writeFile(
     resolve(RESULTS, `${filename.replace(/\.json$/, "")}.json`),
-    JSON.stringify({ filename, docs: docs.length, queryCount: queries.length, rows }, null, 2),
+    JSON.stringify(
+      {
+        filename,
+        docs: docs.length,
+        queryCount: queries.length,
+        repeat,
+        rows,
+      },
+      null,
+      2,
+    ),
   );
   return { filename, rows };
 }
 
 function renderTable(filename: string, rows: Row[]): string {
-  const header = [
-    "| engine | build | raw size | gzip | brotli | mean | p50 | p95 | p99 | recall |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-  ];
+  // Show the stability margin (±stddev) when the user asked for >= 3 repeat
+  // passes — fewer passes than that, and a stddev is just noise.
+  const showStddev = rows.some((row) => row.repeats >= 3);
+  const header = showStddev
+    ? [
+        "| engine | build | raw size | gzip | brotli | mean | p50 (±) | p95 | p99 (±) | recall (±) |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      ]
+    : [
+        "| engine | build | raw size | gzip | brotli | mean | p50 | p95 | p99 | recall |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      ];
   const fmt = (value: number, formatter: (n: number) => string) =>
     Number.isFinite(value) ? formatter(value) : "N/A";
+  const fmtMsWithStddev = (value: number, sd: number) => {
+    if (!Number.isFinite(value)) return "N/A";
+    if (!showStddev || sd === 0) return formatMs(value);
+    return `${formatMs(value)} ± ${formatMs(sd)}`;
+  };
+  const fmtRecallWithStddev = (value: number, sd: number) => {
+    if (!Number.isFinite(value)) return "N/A";
+    if (!showStddev || sd === 0) return `${(value * 100).toFixed(1)}%`;
+    return `${(value * 100).toFixed(1)}% ± ${(sd * 100).toFixed(2)}pp`;
+  };
   const body = rows.map((row) =>
     [
       `| ${row.engine}`,
@@ -241,10 +322,18 @@ function renderTable(filename: string, rows: Row[]): string {
       fmt(row.gzipBytes, formatBytes),
       fmt(row.brotliBytes, formatBytes),
       fmt(row.meanMs, formatMs),
-      fmt(row.p50Ms, formatMs),
+      showStddev
+        ? fmtMsWithStddev(row.p50Ms, row.p50StddevMs)
+        : fmt(row.p50Ms, formatMs),
       fmt(row.p95Ms, formatMs),
-      fmt(row.p99Ms, formatMs),
-      Number.isFinite(row.recall) ? `${(row.recall * 100).toFixed(1)}%` : "N/A",
+      showStddev
+        ? fmtMsWithStddev(row.p99Ms, row.p99StddevMs)
+        : fmt(row.p99Ms, formatMs),
+      showStddev
+        ? fmtRecallWithStddev(row.recall, row.recallStddev)
+        : Number.isFinite(row.recall)
+          ? `${(row.recall * 100).toFixed(1)}%`
+          : "N/A",
     ].join(" | ") + " |",
   );
   void filename;

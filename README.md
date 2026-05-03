@@ -1,3 +1,5 @@
+[![hero](docs/figures/hero.png)](https://shuakami.github.io/Search/)
+
 # @shuakami/search
 
 tiny, zero-dependency full-text search for javascript. build a binary index once, query in microseconds — in the browser, in node, anywhere javascript runs.
@@ -8,6 +10,8 @@ tiny, zero-dependency full-text search for javascript. build a binary index once
 ![runtime](https://img.shields.io/badge/runtime-14_kb-1f1f22?style=flat-square)
 ![dependencies](https://img.shields.io/badge/dependencies-0-1f1f22?style=flat-square)
 ![node](https://img.shields.io/badge/node-%E2%89%A5_18-1f1f22?style=flat-square)
+
+---
 
 ## Why
 
@@ -109,12 +113,14 @@ const hits = engine.search("人工智能");
 
 ## Benchmarks
 
-Real corpora downloaded from public APIs (Hacker News Algolia, Stack Exchange, Wikipedia REST, GitHub raw). Every engine sees the same documents and the same 200 mixed queries (single ASCII, two-word phrase, typo, CJK bigram, prefix-only, code symbol, 3–4 word multi-token, rare tail). Recall is computed against a substring-containment ground truth, so the truth set is identical for every engine.
+Real corpora downloaded from public APIs (Hacker News Algolia, Stack Exchange, Wikipedia REST, GitHub raw). Every engine sees the same documents and the same 300 mixed queries (single ASCII, two-word phrase, typo, CJK bigram, prefix-only, code symbol, 3–4 word multi-token, rare tail). Recall is computed against a substring-containment ground truth, so the truth set is identical for every engine.
+
+The numbers below are the **median over 7 independent passes**, with the standard deviation written next to the median. A `±` margin under 10 % of the value means the run is reproducible — the engine genuinely behaves that way, not "hit a lucky GC window once".
 
 ```bash
 pnpm install
-pnpm bench:datasets       # downloads to bench/datasets/cache/
-pnpm bench --queries=200  # writes Markdown to stdout, JSON to bench/results/
+pnpm bench:datasets                  # downloads to bench/datasets/cache/
+pnpm bench --queries=300 --repeat=7  # writes Markdown to stdout, JSON to bench/results/
 ```
 
 ### Latency at a glance — Hacker News titles, 10 000 docs
@@ -129,53 +135,53 @@ pnpm bench --queries=200  # writes Markdown to stdout, JSON to bench/results/
 
 #### Hacker News titles · 10 000 docs
 
-| engine            | build       | gzip pack  | p50         | p99         | recall  |
-| ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 4.2 s       | 4.46 MB    | **0.101 ms** | **1.252 ms** | **88.5 %** |
-| fuse.js           | 41 ms       | 876 KB     | bailed *    | bailed *    | bailed *|
-| minisearch        | 393 ms      | 1.12 MB    | 0.866 ms    | 4.825 ms    | 85.7 %  |
-| lunr              | 1.4 s       | 1.64 MB    | 0.180 ms    | 4.230 ms    | 67.8 %  |
-| flexsearch        | 751 ms      | n/a †      | 0.012 ms    | 0.399 ms    | 87.9 %  |
+| engine               | build  | brotli pack | p50              | p99              | recall     |
+| -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
+| **@shuakami/search** |  7.5 s |     3.20 MB | 0.097 ± 0.016 ms | 1.957 ± 0.524 ms | **92.2 %** |
+| fuse.js              |  46 ms |    673.5 KB |       bailed *   |        bailed *  |   bailed * |
+| minisearch           | 727 ms |    823.6 KB | 1.265 ± 0.260 ms | 13.25 ± 1.707 ms |     85.7 % |
+| lunr                 |  3.2 s |     1.18 MB | 0.208 ± 0.057 ms | 12.14 ± 2.141 ms |     67.8 % |
+| flexsearch           |  1.5 s |        12 B | 0.004 ± 0.001 ms | 0.441 ± 1.723 ms |     87.9 % |
 
 #### Stack Overflow questions · 10 000 docs (multi-paragraph technical prose)
 
-| engine            | build       | gzip pack  | p50         | p99         | recall  |
-| ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 10.0 s      | 9.96 MB    | **0.346 ms** | 6.891 ms    | 84.0 %  |
-| fuse.js           | 78 ms       | 2.78 MB    | bailed *    | bailed *    | bailed *|
-| minisearch        | 1.4 s       | 2.60 MB    | 1.923 ms    | 21.57 ms    | 82.2 %  |
-| lunr              | 4.3 s       | 4.80 MB    | 0.787 ms    | 24.61 ms    | 58.7 %  |
-| flexsearch        | 2.1 s       | n/a †      | 0.008 ms    | 2.485 ms    | 87.1 %  |
+| engine               | build  | brotli pack | p50              | p99              | recall     |
+| -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
+| **@shuakami/search** | 16.2 s |     7.09 MB | 0.388 ± 0.030 ms | 20.50 ± 1.242 ms | **92.2 %** |
+| fuse.js              | 184 ms |     2.01 MB |       bailed *   |        bailed *  |   bailed * |
+| minisearch           |  2.5 s |     1.68 MB | 4.895 ± 0.496 ms | 45.50 ± 3.890 ms |     82.2 % |
+| lunr                 |  8.3 s |     3.40 MB | 1.332 ± 0.121 ms | 47.16 ± 6.058 ms |     58.7 % |
+| flexsearch           |  4.1 s |        12 B | 0.007 ± 0.002 ms | 5.494 ± 1.627 ms |     87.1 % |
 
 #### Wikipedia EN summaries · 10 000 docs
 
-| engine            | build       | gzip pack  | p50         | p99         | recall  |
-| ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 11.6 s      | 11.16 MB   | **0.207 ms** | 4.487 ms    | **88.2 %** |
-| fuse.js           | 78 ms       | 2.78 MB    | bailed *    | bailed *    | bailed *|
-| minisearch        | 1.4 s       | 2.53 MB    | 1.904 ms    | 15.02 ms    | 77.7 %  |
-| lunr              | 4.0 s       | 4.88 MB    | 0.194 ms    | 13.48 ms    | 68.8 %  |
-| flexsearch        | 2.2 s       | n/a †      | 0.010 ms    | 1.866 ms    | 87.8 %  |
+| engine               | build  | brotli pack | p50              | p99              | recall     |
+| -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
+| **@shuakami/search** | 21.1 s |     8.27 MB | 0.241 ± 0.024 ms | 14.34 ± 1.021 ms | **92.5 %** |
+| fuse.js              | 145 ms |     1.99 MB |       bailed *   |        bailed *  |   bailed * |
+| minisearch           |  2.6 s |     1.69 MB | 1.911 ± 0.481 ms | 18.85 ± 3.206 ms |     77.7 % |
+| lunr                 |  7.3 s |     3.58 MB | 0.204 ± 0.007 ms | 14.91 ± 3.455 ms |     68.8 % |
+| flexsearch           |  3.4 s |        12 B | 0.007 ± 0.002 ms | 1.234 ± 0.299 ms |     87.8 % |
 
 #### GitHub source code · 5 876 files (camelCase, snake_case, code symbols)
 
-| engine            | build       | gzip pack  | p50         | p99         | recall  |
-| ----------------- | ----------: | ---------: | ----------: | ----------: | ------: |
-| **@shuakami/search** | 16.6 s      | 11.86 MB   | 0.807 ms    | 20.01 ms    | 80.7 %  |
-| fuse.js           | 124 ms      | 4.16 MB    | bailed *    | bailed *    | bailed *|
-| minisearch        | 3.0 s       | 2.89 MB    | 2.607 ms    | 36.00 ms    | 84.8 %  |
-| lunr              | 7.7 s       | 9.34 MB    | 0.346 ms    | 17.56 ms    | 62.5 %  |
-| flexsearch        | 2.4 s       | n/a †      | 0.013 ms    | 0.495 ms    | 87.5 %  |
+| engine               | build  | brotli pack | p50              | p99              | recall     |
+| -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
+| **@shuakami/search** | 37.5 s |     7.77 MB | 0.774 ± 0.038 ms | 60.72 ± 8.376 ms |     87.2 % |
+| fuse.js              | 397 ms |     3.10 MB |       bailed *   |        bailed *  |   bailed * |
+| minisearch           |  7.2 s |     1.66 MB | 9.302 ± 2.532 ms |  122.7 ± 29.2 ms |     84.8 % |
+| lunr                 | 18.2 s |     4.86 MB | 0.406 ± 0.033 ms | 35.37 ± 7.728 ms |     62.5 % |
+| flexsearch           |  4.0 s |        12 B | 0.008 ± 0.002 ms | 3.667 ± 0.512 ms | **87.5 %** |
 
 #### Wikipedia ZH summaries · 10 000 docs (mixed-script CJK)
 
-| engine            | build       | gzip pack  | p50         | p99         | recall      |
-| ----------------- | ----------: | ---------: | ----------: | ----------: | ----------: |
-| **@shuakami/search** | 23.7 s      | 20.07 MB   | **0.066 ms** | **1.467 ms** | **93.0 %**  |
-| fuse.js           | 47 ms       | 4.00 MB    | bailed *    | bailed *    | bailed *    |
-| minisearch        | 4.9 s       | 4.82 MB    | 5.436 ms    | 62.37 ms    | 66.9 %      |
-| lunr              | 3.6 s       | 2.58 MB    | 0.057 ms    | 1.358 ms    | 43.5 %      |
-| flexsearch        | 4.3 s       | n/a †      | 0.014 ms    | 0.176 ms    | 71.4 %      |
+| engine               | build  | brotli pack | p50              | p99              | recall     |
+| -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
+| **@shuakami/search** |  9.0 s |     7.91 MB | 0.028 ± 0.024 ms | 0.884 ± 0.565 ms | **95.3 %** |
+| fuse.js              |  35 ms |     2.74 MB |       bailed *   |        bailed *  |   bailed * |
+| minisearch           |  5.0 s |     3.30 MB | 6.402 ± 0.293 ms | 52.14 ± 2.646 ms |     66.9 % |
+| lunr                 |  3.6 s |     1.83 MB | 0.025 ± 0.006 ms | 1.208 ± 1.419 ms |     43.5 % |
+| flexsearch           |  3.7 s |        12 B | 0.003 ± 0.002 ms | 0.042 ± 0.032 ms |     71.4 % |
 
 `*` _fuse.js_ is fully fuzzy and rescans every document on every query — it could not finish a 200-query warmup pass under our 20 s budget on any corpus past ~5 000 long-text docs. The bench runner marks it `bailed` and keeps going.
 
