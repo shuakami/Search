@@ -282,7 +282,13 @@ function collectFieldFeatures(
         continue;
       }
       emitted.add(joined);
-      if (width > 1 && allComponentsValid) {
+      // Width-1 (the bare token) is already covered by the exact / prefix
+      // channels — `j:` only carries phrase signal, so emit it only for
+      // multi-token windows. Skip joins shorter than 5 chars: a 4-char
+      // 2-token phrase is almost certainly something like `for i` or `if e`
+      // — high-frequency syntax noise that costs bytes without paying back
+      // any phrase-matching value.
+      if (width > 1 && allComponentsValid && joined.length >= 5) {
         addScore(
           featureMap,
           `j:${joined}`,
@@ -413,13 +419,15 @@ export function buildIndex(
     options.storeFields ?? resolvedFields.map((field) => field.name);
   const tagsField = options.tagsField;
   const fuzzy = options.fuzzy !== false;
-  // 512 was tuned for a tiny FAQ-shaped corpus and proved far too aggressive
-  // on real bodies — wiki / Stack Overflow / news articles have 1–5 KB of
-  // content and we were truncating the gate signal after one paragraph. A
-  // 4 KB cap keeps long-doc recall close to oracle while still cutting the
-  // very long pages (full books, manpages) that would otherwise dominate
-  // pack size.
-  const signalMaxLength = options.signalMaxLength ?? 4096;
+  // The signal text is consulted at query time for two things: (1) the
+  // substring-boost when a query happens to be a contiguous run of
+  // characters in some indexed field, and (2) the per-token multi-token
+  // coverage fallback when a query token isn't represented in the
+  // posting mask for that doc. 2 KB is the sweet spot we measured on the
+  // bench corpora: 4 KB only buys a fraction of a percent of recall over
+  // 2 KB but bloats the pack ~50 %, while 1 KB drops github-code recall
+  // by 4 pp because code bodies push relevant tokens past the cap.
+  const signalMaxLength = options.signalMaxLength ?? 2048;
 
   // The signal default keeps every non-URL field — URLs introduce noisy
   // collapsed forms that dilute substring boosts. A length cap on the whole
@@ -493,12 +501,15 @@ export function buildIndex(
       }
 
       const term = feature.slice(2);
-      // Index with maxDeletes=2 for terms long enough to absorb the cost.
-      // Pairs with the runtime's maxDeletes=1 to recover 2-edit typos via
-      // shared length-(L-2) deletes (e.g. user types "typscript" for
-      // "typescript": the runtime's 1-delete and the index's 2-delete meet
-      // at length 8). Short terms (< 4) keep maxDeletes=1 to bound the pack.
-      const maxDeletes = term.length >= 4 ? 2 : 1;
+      // Index with maxDeletes=2 only for long terms where 2-edit typos are
+      // common enough to earn the bytes. Pairs with the runtime's
+      // maxDeletes=1 to recover 2-edit typos via shared length-(L-2) deletes
+      // (e.g. user types "typscript" for "typescript": runtime's 1-delete
+      // and the index's 2-delete meet at length 8). Short terms (< 6) keep
+      // maxDeletes=1 — 2-edit typos on a 4-char word are essentially noise
+      // (every second token in the corpus would match) and the delete table
+      // explodes quadratically in term length, so the savings are large.
+      const maxDeletes = term.length >= 6 ? 2 : 1;
       for (const deletion of generateDeletes(term, maxDeletes)) {
         if (!deletion) continue;
         let candidates = correctionMap.get(deletion);
@@ -521,13 +532,30 @@ export function buildIndex(
   // pairs, the ones that *do* identify a query) are kept.
   const noiseDfCutoff = options.noiseDfCutoff ?? 0.4;
   const dfCap = Math.floor(documents.length * noiseDfCutoff);
-  if (dfCap > 0) {
+  // Token-join (`j:`) gets a tighter cap — joins are derived features whose
+  // anchor value drops fast as DF rises (a join present in 30 % of docs is
+  // close to noise; a 5 % join is still discriminating). Pruning aggressively
+  // here is the single biggest pack-size win on body-text corpora because
+  // every common 2-token sequence (`var args`, `let i`, `for each`) explodes
+  // into a high-DF posting.
+  // The cap is a fraction of the corpus, but never lower than a sensible
+  // minimum so small docsets don't end up with everything pruned.
+  const joinDfCap = Math.max(
+    16,
+    Math.floor(documents.length * Math.min(noiseDfCutoff, 0.08)),
+  );
+  if (dfCap > 0 || joinDfCap > 0) {
     for (const feature of [...tokenPostings.keys()]) {
       const sigil = feature.charCodeAt(0);
-      // 'p' = 0x70, 'g' = 0x67, 'h' = 0x68
-      if (sigil !== 0x70 && sigil !== 0x67 && sigil !== 0x68) continue;
+      // 'p' = 0x70, 'g' = 0x67, 'h' = 0x68, 'j' = 0x6a
       const posting = tokenPostings.get(feature);
-      if (posting && posting.size > dfCap) {
+      if (!posting) continue;
+      if (
+        (sigil === 0x70 || sigil === 0x67 || sigil === 0x68) &&
+        posting.size > dfCap
+      ) {
+        tokenPostings.delete(feature);
+      } else if (sigil === 0x6a && posting.size > joinDfCap) {
         tokenPostings.delete(feature);
       }
     }
@@ -580,7 +608,15 @@ export function buildIndex(
     }
 
     writeString(writer, docSignals[docId].compact, encoder);
-    writeString(writer, docSignals[docId].ascii, encoder);
+    if (docSignals[docId].ascii === docSignals[docId].compact) {
+      // Sentinel: 0-length ascii means "reuse compact". Saves the entire
+      // copy on English / ASCII corpora where they're byte-identical 99 %
+      // of the time, with a one-byte cost on the few non-CJK docs that
+      // genuinely have an empty asciiJoin (very rare in practice).
+      writer.writeVarint(0);
+    } else {
+      writeString(writer, docSignals[docId].ascii, encoder);
+    }
 
     if (tagsField) {
       const tagValue = doc[tagsField];

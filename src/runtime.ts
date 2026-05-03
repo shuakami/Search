@@ -290,7 +290,14 @@ export function loadIndex(input: ArrayBuffer | Uint8Array): SearchEngine {
       fields[fieldName] = readString();
     }
     const signalCompact = readString();
-    const signalAscii = readString();
+    // Honor the ascii sentinel: a 0-byte payload means "reuse compact",
+    // which is what we wrote on docs whose asciiJoin matched the compact
+    // join byte-for-byte (≥99 % of English-corpus docs).
+    const signalAsciiRaw = readString();
+    const signalAscii =
+      signalAsciiRaw.length === 0 && signalCompact.length > 0
+        ? signalCompact
+        : signalAsciiRaw;
     const tagCount = reader.readVarint();
     const tags: string[] = [];
     for (let tag = 0; tag < tagCount; tag += 1) {

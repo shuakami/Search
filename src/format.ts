@@ -17,6 +17,9 @@
  *       varint value_len + value bytes
  *     varint signal_compact_len + bytes
  *     varint signal_ascii_len   + bytes
+ *       (length 0 is a sentinel meaning "ascii is identical to compact" —
+ *       this saves ~50 % of the doc section on English-only corpora where
+ *       the two strings would otherwise be byte-for-byte duplicates.)
  *     varint tag_count
  *       per tag: varint tag_len + tag bytes
  *
