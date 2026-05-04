@@ -8,7 +8,7 @@
  *   createSearch(url)                — browser/Node bootstrap, fetch + load
  *
  * Everything else (tokenizer, varint, format constants, highlight helpers)
- * is exported under `@shuakami/search/internals` for advanced use.
+ * is exported under `shuakami-search/internals` for advanced use.
  */
 
 export { buildIndex } from "./builder";

@@ -1,12 +1,12 @@
 /**
- * React bindings for `@shuakami/search`.
+ * React bindings for `shuakami-search`.
  *
  * These hooks are intentionally minimal: they own no global state, do no
  * fetching themselves, and never throw on the render path. You build (or
  * fetch) a `pack: Uint8Array` once, hand it to `useSearch`, and the hook
  * memoises the engine + keeps a stable reference between renders.
  *
- * The bindings are tree-shakeable — apps that import `@shuakami/search`
+ * The bindings are tree-shakeable — apps that import `shuakami-search`
  * without touching `/react` never pull React in.
  *
  * NOTE: `react` is declared as a peer dependency. If you use these helpers,

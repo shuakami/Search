@@ -1,5 +1,5 @@
 /**
- * Service Worker integration template for `@shuakami/search`.
+ * Service Worker integration template for `shuakami-search`.
  *
  * Pattern: install-time pack precache + offline-capable in-page search.
  *
@@ -25,7 +25,7 @@ import {
   loadIndex,
   type DetailedSearchResult,
   type SearchEngine,
-} from "@shuakami/search";
+} from "shuakami-search";
 
 declare const self: ServiceWorkerGlobalScope;
 

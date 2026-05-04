@@ -7,7 +7,7 @@ export default defineConfig({
   base: "/Search/",
   resolve: {
     alias: {
-      "@shuakami/search": fileURLToPath(new URL("../src/index.ts", import.meta.url)),
+      "shuakami-search": fileURLToPath(new URL("../src/index.ts", import.meta.url)),
     },
   },
   build: {

@@ -3,7 +3,7 @@
   "layout": { "width": 1900, "height": 980, "yMax": 100, "unit": "%", "padding": { "top": 110, "left": 100, "right": 60, "bottom": 130 }, "footnote": "fuse.js excluded — bailed on long-text corpora within the 20 s warmup budget. higher is better." },
   "data": {
     "series": [
-      { "key": "ours", "label": "@shuakami/search" },
+      { "key": "ours", "label": "shuakami-search" },
       { "key": "mini", "label": "minisearch" },
       { "key": "lunr", "label": "lunr" },
       { "key": "flex", "label": "flexsearch" }

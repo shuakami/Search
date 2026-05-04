@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@shuakami/search — inline demo</title>
+    <title>shuakami-search — inline demo</title>
     <style>
       body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 4rem auto; padding: 0 1rem; }
       input { width: 100%; padding: .6rem .8rem; font: inherit; border: 1px solid #ccc; border-radius: 6px; }
@@ -12,13 +12,13 @@
     </style>
   </head>
   <body>
-    <h1>@shuakami/search — inline</h1>
+    <h1>shuakami-search — inline</h1>
     <p>Index built in-page from a JS array. No network. Edit and reload.</p>
     <input id="q" placeholder="try: hello / 中文 / tokenizer / wasm" autofocus />
     <ol id="hits"></ol>
 
     <!-- The standalone build registers `window.ShuakamiSearch`. -->
-    <script src="https://unpkg.com/@shuakami/search/dist/standalone/shuakami-search.global.js"></script>
+    <script src="https://unpkg.com/shuakami-search/dist/standalone/shuakami-search.global.js"></script>
     <script>
       const docs = [
         { id: "1", title: "Hello world", body: "First post on the new blog." },

@@ -1,10 +1,10 @@
 [![hero](docs/figures/hero.png)](https://shuakami.github.io/Search/)
 
-# @shuakami/search
+# shuakami-search
 
 tiny, zero-dependency full-text search for javascript. build a binary index once, query in microseconds — in the browser, in node, anywhere javascript runs.
 
-[live demo](https://shuakami.github.io/Search/) · [npm](https://www.npmjs.com/package/@shuakami/search) · [mit](https://github.com/shuakami/Search/blob/main/LICENSE)
+[live demo](https://shuakami.github.io/Search/) · [npm](https://www.npmjs.com/package/shuakami-search) · [mit](https://github.com/shuakami/Search/blob/main/LICENSE)
 
 [![ci](https://img.shields.io/github/actions/workflow/status/shuakami/Search/ci.yml?branch=main&label=ci&style=flat-square)](https://github.com/shuakami/Search/actions/workflows/ci.yml)
 ![runtime](https://img.shields.io/badge/runtime-14_kb-1f1f22?style=flat-square)
@@ -20,7 +20,7 @@ The JS search-engine field has been stuck choosing between two trade-offs:
 1. **Tiny bundle, slow queries** — `fuse.js` ships in a few kilobytes but scans every document on every keystroke; once the corpus passes a few thousand long-text rows the type-as-you-search experience falls apart.
 2. **Fast queries, no portable index** — `flexsearch`, `lunr`, and friends are quick on a warm engine but their on-disk format is a JSON dump (or worse, an async chunked serializer) that has to be re-parsed and re-allocated on every page load.
 
-`@shuakami/search` aims for a third point:
+`shuakami-search` aims for a third point:
 
 - The build step produces **one `Uint8Array`**. Drop it in a static asset folder, embed it as base64 in a bundle, ship it through a Worker, store it in IndexedDB. No JSON, no asynchronous re-hydration, no per-document overhead.
 - `loadIndex(pack)` is **synchronous and zero-copy**. The engine reads the pack via typed-array views; nothing is materialised eagerly.
@@ -33,14 +33,14 @@ The runtime is 14 KB raw / ~6 KB gzipped, no `Buffer`, no DOM, no `eval`, no asy
 ## Install
 
 ```bash
-npm install @shuakami/search
+npm install shuakami-search
 # or pnpm / yarn / bun
 ```
 
 Or drop the standalone build into a page — no bundler required:
 
 ```html
-<script src="https://unpkg.com/@shuakami/search/dist/standalone/shuakami-search.global.js"></script>
+<script src="https://unpkg.com/shuakami-search/dist/standalone/shuakami-search.global.js"></script>
 <script>
   const { buildIndex, loadIndex } = window.ShuakamiSearch;
 </script>
@@ -51,7 +51,7 @@ Or drop the standalone build into a page — no bundler required:
 ### Build an index (once, anywhere — Node script, build step, CI)
 
 ```ts
-import { buildIndex } from "@shuakami/search";
+import { buildIndex } from "shuakami-search";
 
 const docs = [
   { id: "1", title: "Hello world",   body: "First post." },
@@ -77,7 +77,7 @@ await fs.writeFile("site.pack", pack);
 ### Query (in the browser, Node, a Worker, an edge runtime)
 
 ```ts
-import { loadIndex } from "@shuakami/search";
+import { loadIndex } from "shuakami-search";
 
 const engine = loadIndex(pack);
 const hits = engine.search("token", { limit: 10 });
@@ -87,7 +87,7 @@ const hits = engine.search("token", { limit: 10 });
 ### Render highlights
 
 ```ts
-import { renderHighlights } from "@shuakami/search";
+import { renderHighlights } from "shuakami-search";
 
 const hit = hits[0];
 const titleMatches = hit.matches.find((m) => m.field === "title");
@@ -101,7 +101,7 @@ const html = renderHighlights(
 ### Fetch a remote pack with one call
 
 ```ts
-import { createSearch } from "@shuakami/search";
+import { createSearch } from "shuakami-search";
 
 const engine = await createSearch("/search-index.bin");
 const hits = engine.search("人工智能");
@@ -137,7 +137,7 @@ pnpm bench --queries=300 --repeat=7  # writes Markdown to stdout, JSON to bench/
 
 | engine               | build  | brotli pack | p50              | p99              | recall     |
 | -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
-| **@shuakami/search** |  7.5 s |     3.20 MB | 0.097 ± 0.016 ms | 1.957 ± 0.524 ms | **92.2 %** |
+| **shuakami-search** |  7.5 s |     3.20 MB | 0.097 ± 0.016 ms | 1.957 ± 0.524 ms | **92.2 %** |
 | fuse.js              |  46 ms |    673.5 KB |       bailed *   |        bailed *  |   bailed * |
 | minisearch           | 727 ms |    823.6 KB | 1.265 ± 0.260 ms | 13.25 ± 1.707 ms |     85.7 % |
 | lunr                 |  3.2 s |     1.18 MB | 0.208 ± 0.057 ms | 12.14 ± 2.141 ms |     67.8 % |
@@ -147,7 +147,7 @@ pnpm bench --queries=300 --repeat=7  # writes Markdown to stdout, JSON to bench/
 
 | engine               | build  | brotli pack | p50              | p99              | recall     |
 | -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
-| **@shuakami/search** | 16.2 s |     7.09 MB | 0.388 ± 0.030 ms | 20.50 ± 1.242 ms | **92.2 %** |
+| **shuakami-search** | 16.2 s |     7.09 MB | 0.388 ± 0.030 ms | 20.50 ± 1.242 ms | **92.2 %** |
 | fuse.js              | 184 ms |     2.01 MB |       bailed *   |        bailed *  |   bailed * |
 | minisearch           |  2.5 s |     1.68 MB | 4.895 ± 0.496 ms | 45.50 ± 3.890 ms |     82.2 % |
 | lunr                 |  8.3 s |     3.40 MB | 1.332 ± 0.121 ms | 47.16 ± 6.058 ms |     58.7 % |
@@ -157,7 +157,7 @@ pnpm bench --queries=300 --repeat=7  # writes Markdown to stdout, JSON to bench/
 
 | engine               | build  | brotli pack | p50              | p99              | recall     |
 | -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
-| **@shuakami/search** | 21.1 s |     8.27 MB | 0.241 ± 0.024 ms | 14.34 ± 1.021 ms | **92.5 %** |
+| **shuakami-search** | 21.1 s |     8.27 MB | 0.241 ± 0.024 ms | 14.34 ± 1.021 ms | **92.5 %** |
 | fuse.js              | 145 ms |     1.99 MB |       bailed *   |        bailed *  |   bailed * |
 | minisearch           |  2.6 s |     1.69 MB | 1.911 ± 0.481 ms | 18.85 ± 3.206 ms |     77.7 % |
 | lunr                 |  7.3 s |     3.58 MB | 0.204 ± 0.007 ms | 14.91 ± 3.455 ms |     68.8 % |
@@ -167,7 +167,7 @@ pnpm bench --queries=300 --repeat=7  # writes Markdown to stdout, JSON to bench/
 
 | engine               | build  | brotli pack | p50              | p99              | recall     |
 | -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
-| **@shuakami/search** | 37.5 s |     7.77 MB | 0.774 ± 0.038 ms | 60.72 ± 8.376 ms |     87.2 % |
+| **shuakami-search** | 37.5 s |     7.77 MB | 0.774 ± 0.038 ms | 60.72 ± 8.376 ms |     87.2 % |
 | fuse.js              | 397 ms |     3.10 MB |       bailed *   |        bailed *  |   bailed * |
 | minisearch           |  7.2 s |     1.66 MB | 9.302 ± 2.532 ms |  122.7 ± 29.2 ms |     84.8 % |
 | lunr                 | 18.2 s |     4.86 MB | 0.406 ± 0.033 ms | 35.37 ± 7.728 ms |     62.5 % |
@@ -177,7 +177,7 @@ pnpm bench --queries=300 --repeat=7  # writes Markdown to stdout, JSON to bench/
 
 | engine               | build  | brotli pack | p50              | p99              | recall     |
 | -------------------- | -----: | ----------: | ---------------: | ---------------: | ---------: |
-| **@shuakami/search** |  9.0 s |     7.91 MB | 0.028 ± 0.024 ms | 0.884 ± 0.565 ms | **95.3 %** |
+| **shuakami-search** |  9.0 s |     7.91 MB | 0.028 ± 0.024 ms | 0.884 ± 0.565 ms | **95.3 %** |
 | fuse.js              |  35 ms |     2.74 MB |       bailed *   |        bailed *  |   bailed * |
 | minisearch           |  5.0 s |     3.30 MB | 6.402 ± 0.293 ms | 52.14 ± 2.646 ms |     66.9 % |
 | lunr                 |  3.6 s |     1.83 MB | 0.025 ± 0.006 ms | 1.208 ± 1.419 ms |     43.5 % |
@@ -189,11 +189,11 @@ pnpm bench --queries=300 --repeat=7  # writes Markdown to stdout, JSON to bench/
 
 #### How to read this table
 
-- **CJK is the bright line.** Every other engine drops 10–25 points of recall on Chinese Wikipedia because their default tokenizers either split on whitespace (and there is none) or apply Latin-only stemming. `@shuakami/search` keeps the recall lead on CJK *and* the latency lead.
+- **CJK is the bright line.** Every other engine drops 10–25 points of recall on Chinese Wikipedia because their default tokenizers either split on whitespace (and there is none) or apply Latin-only stemming. `shuakami-search` keeps the recall lead on CJK *and* the latency lead.
 - **flexsearch** is the fastest at query time on every corpus, but its on-disk story is a separate set of asynchronous APIs, the runtime does not store the source field text, and the pack column above shows the JSON path is unusable. If your app already has the documents in memory and you do not need a portable index, it is the right choice.
 - **minisearch** is the best generalist for short ASCII corpora and edges us on recall on English Hacker News and Stack Overflow (its multi-token AND scoring matches our substring-AND truth more aggressively). On long-form text and CJK it falls behind on both axes.
 - **lunr** has very tight cold latency, but its built-in tokenizer drops most CJK content (43.6 % on Chinese Wikipedia) and it discards rare tokens during stemming.
-- **@shuakami/search** keeps p99 below 14 ms on every corpus tested, holds the recall lead on Chinese, and ships a single binary blob you can `fetch()` synchronously. The trade-off is a larger pack on long ASCII corpora — every per-token feature (exact, prefix, signal, joined, bigram) is materialised, which is the cost of having one engine that works on all five corpora above without per-corpus tuning.
+- **shuakami-search** keeps p99 below 14 ms on every corpus tested, holds the recall lead on Chinese, and ships a single binary blob you can `fetch()` synchronously. The trade-off is a larger pack on long ASCII corpora — every per-token feature (exact, prefix, signal, joined, bigram) is materialised, which is the cost of having one engine that works on all five corpora above without per-corpus tuning.
 
 ## How it works
 

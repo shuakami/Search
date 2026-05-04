@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@shuakami/search — fetch demo</title>
+    <title>shuakami-search — fetch demo</title>
     <style>
       body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 4rem auto; padding: 0 1rem; }
       input { width: 100%; padding: .6rem .8rem; font: inherit; border: 1px solid #ccc; border-radius: 6px; }
@@ -13,15 +13,15 @@
     </style>
   </head>
   <body>
-    <h1>@shuakami/search</h1>
+    <h1>shuakami-search</h1>
     <p>Pack is fetched from <code>./site.pack</code>; query happens entirely in the browser.</p>
     <input id="q" placeholder="search…" autofocus />
     <p class="hint" id="hint">loading index…</p>
     <ol id="hits"></ol>
 
     <script type="module">
-      import { createSearch } from "https://unpkg.com/@shuakami/search/dist/browser.js";
-      import { renderHighlights } from "https://unpkg.com/@shuakami/search/dist/highlight.js";
+      import { createSearch } from "https://unpkg.com/shuakami-search/dist/browser.js";
+      import { renderHighlights } from "https://unpkg.com/shuakami-search/dist/highlight.js";
 
       const hint = document.getElementById("hint");
       const list = document.getElementById("hits");

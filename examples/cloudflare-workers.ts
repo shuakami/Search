@@ -1,5 +1,5 @@
 /**
- * Cloudflare Workers integration template for `@shuakami/search`.
+ * Cloudflare Workers integration template for `shuakami-search`.
  *
  * Deploys a binary search pack at the edge: the pack is read from KV (or
  * baked-in static asset) on cold start, loaded into a `SearchEngine` once,
@@ -24,7 +24,7 @@
  *   4. Deploy: `wrangler deploy`.
  */
 
-import { loadIndex, type SearchEngine } from "@shuakami/search";
+import { loadIndex, type SearchEngine } from "shuakami-search";
 
 interface Env {
   PACK_KV?: KVNamespace;

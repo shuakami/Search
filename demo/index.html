@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f6f4ef" />
-    <title>@shuakami/search — sub-millisecond full-text search for any JS</title>
+    <title>shuakami-search — sub-millisecond full-text search for any JS</title>
     <meta
       name="description"
       content="Tiny, zero-dependency full-text search for JavaScript. Build a binary index once, query in microseconds — in the browser, in Node, anywhere JS runs."
     />
-    <meta property="og:title" content="@shuakami/search" />
+    <meta property="og:title" content="shuakami-search" />
     <meta
       property="og:description"
       content="Tiny, zero-dependency full-text search for JavaScript. Build a binary index once, query in microseconds — in the browser, in Node, anywhere JS runs."
@@ -37,10 +37,10 @@
   </head>
   <body>
     <nav class="topnav">
-      <span class="topnav__brand">@shuakami/search</span>
+      <span class="topnav__brand">shuakami-search</span>
       <span class="topnav__spacer"></span>
       <a href="https://github.com/shuakami/Search">github</a>
-      <a href="https://www.npmjs.com/package/@shuakami/search">npm</a>
+      <a href="https://www.npmjs.com/package/shuakami-search">npm</a>
       <a href="#about">about</a>
     </nav>
 
@@ -136,7 +136,7 @@
 
     <section class="snippet">
       <pre><code><span class="t-c">// build the index once, at deploy time</span>
-<span class="t-k">import</span> { buildIndex } <span class="t-k">from</span> <span class="t-s">"@shuakami/search"</span>;
+<span class="t-k">import</span> { buildIndex } <span class="t-k">from</span> <span class="t-s">"shuakami-search"</span>;
 
 <span class="t-k">const</span> { pack } <span class="t-o">=</span> <span class="t-f">buildIndex</span>(docs, {
   fields: {
@@ -147,7 +147,7 @@
 <span class="t-k">await</span> writeFile(<span class="t-s">"site.pack"</span>, pack);
 
 <span class="t-c">// then query, anywhere</span>
-<span class="t-k">import</span> { createSearch } <span class="t-k">from</span> <span class="t-s">"@shuakami/search/browser"</span>;
+<span class="t-k">import</span> { createSearch } <span class="t-k">from</span> <span class="t-s">"shuakami-search/browser"</span>;
 
 <span class="t-k">const</span> engine <span class="t-o">=</span> <span class="t-k">await</span> <span class="t-f">createSearch</span>(<span class="t-s">"/site.pack"</span>);
 <span class="t-k">const</span> hits  <span class="t-o">=</span> engine.<span class="t-f">search</span>(<span class="t-s">"machine learning"</span>);</code></pre>
@@ -156,7 +156,7 @@
     <footer class="foot">
       <span>mit licensed.</span>
       <a href="https://github.com/shuakami/Search">github.com/shuakami/Search</a>
-      <a href="https://www.npmjs.com/package/@shuakami/search">@shuakami/search on npm</a>
+      <a href="https://www.npmjs.com/package/shuakami-search">shuakami-search on npm</a>
     </footer>
 
     <script type="module" src="./src/main.ts"></script>

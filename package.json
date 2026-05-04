@@ -1,5 +1,5 @@
 {
-  "name": "@shuakami/search",
+  "name": "shuakami-search",
   "version": "0.1.0",
   "description": "Tiny, zero-dependency full-text search for JavaScript. Builds a binary index once, then queries in microseconds — in the browser, in Node, or anywhere JS runs.",
   "license": "MIT",

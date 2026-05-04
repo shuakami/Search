@@ -56,7 +56,7 @@ importers:
 
   demo:
     dependencies:
-      '@shuakami/search':
+      'shuakami-search':
         specifier: workspace:*
         version: link:..
     devDependencies:

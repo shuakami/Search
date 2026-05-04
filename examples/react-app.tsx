@@ -1,7 +1,7 @@
 /**
- * React integration example for `@shuakami/search`.
+ * React integration example for `shuakami-search`.
  *
- * Demonstrates the three hooks shipped under `@shuakami/search/react`:
+ * Demonstrates the three hooks shipped under `shuakami-search/react`:
  *   - `useSearch(pack, query)` — debounced search with `correctedQuery`
  *   - `useSuggest(pack, prefix)` — autocomplete
  *   - `<Highlight />` — render highlighted spans without
@@ -17,7 +17,7 @@ import {
   Highlight,
   useSearch,
   useSuggest,
-} from "@shuakami/search/react";
+} from "shuakami-search/react";
 
 function usePack(url: string): Uint8Array | null {
   const [pack, setPack] = useState<Uint8Array | null>(null);

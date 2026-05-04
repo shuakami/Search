@@ -10,7 +10,7 @@
     "prepare:packs": "tsx scripts/build-packs.ts"
   },
   "dependencies": {
-    "@shuakami/search": "workspace:*"
+    "shuakami-search": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.21.0",

@@ -7,7 +7,7 @@
  * in a small ring buffer so we can show p50/p99 over the last N queries.
  */
 
-import { loadIndex, renderHighlights, type SearchEngine } from "@shuakami/search";
+import { loadIndex, renderHighlights, type SearchEngine } from "shuakami-search";
 
 interface PackEntry {
   slug: string;
